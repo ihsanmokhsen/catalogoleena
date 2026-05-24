@@ -110,8 +110,42 @@
           <p>Pilih produk dari katalog, lalu lanjut checkout lewat WhatsApp.</p>
         </div>
         <footer class="cart-footer">
+          <section class="checkout-fields" aria-label="Data pengiriman">
+            <label>
+              <span>Nama penerima</span>
+              <input id="checkoutName" type="text" placeholder="Nama lengkap">
+            </label>
+            <label>
+              <span>No WhatsApp</span>
+              <input id="checkoutPhone" type="tel" placeholder="08xxxxxxxxxx">
+            </label>
+            <label class="wide">
+              <span>Alamat lengkap</span>
+              <textarea id="checkoutAddress" rows="2" placeholder="Jalan, RT/RW, kelurahan, kecamatan"></textarea>
+            </label>
+            <label>
+              <span>Kota / Kecamatan</span>
+              <input id="checkoutCity" type="text" placeholder="Contoh: Makassar, Panakkukang">
+            </label>
+            <label>
+              <span>Ongkir (Rp)</span>
+              <input id="shippingCost" type="number" min="0" step="1000" value="0">
+            </label>
+            <label class="wide">
+              <span>Catatan</span>
+              <input id="checkoutNote" type="text" placeholder="Warna cadangan, patokan rumah, jam kirim, dll">
+            </label>
+          </section>
           <div class="cart-total-row">
-            <span>Total estimasi</span>
+            <span>Subtotal produk</span>
+            <strong id="cartSubtotal">Rp0</strong>
+          </div>
+          <div class="cart-total-row">
+            <span>Ongkir</span>
+            <strong id="cartShipping">Rp0</strong>
+          </div>
+          <div class="cart-total-row">
+            <span>Total bayar</span>
             <strong id="cartTotal">Rp0</strong>
           </div>
           <div class="cart-footer-actions">
@@ -126,6 +160,25 @@
       <span>Keranjang</span>
       <strong id="mobileCartSummary">0 item - Rp0</strong>
     </button>
+
+    <div id="pageLoaderOverlay" class="page-loader-overlay" hidden>
+      <div class="loader-wrapper">
+        <div class="loader"></div>
+        <div class="letter-wrapper">
+          <span class="loader-letter">o</span>
+          <span class="loader-letter">l</span>
+          <span class="loader-letter">e</span>
+          <span class="loader-letter">e</span>
+          <span class="loader-letter">n</span>
+          <span class="loader-letter">a</span>
+          <span class="loader-letter">g</span>
+          <span class="loader-letter">o</span>
+          <span class="loader-letter">o</span>
+          <span class="loader-letter">d</span>
+          <span class="loader-letter">s</span>
+        </div>
+      </div>
+    </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

@@ -5,7 +5,7 @@
     series: "all",
     status: "all",
     sort: "featured",
-    visibleCount: 8,
+    visibleCount: Number.MAX_SAFE_INTEGER,
     favorites: new Set(JSON.parse(localStorage.getItem("oleena:favorites") || "[]")),
     cart: new Map(JSON.parse(localStorage.getItem("oleena:cart") || "[]"))
   };
@@ -32,15 +32,24 @@
   const closeCart = document.querySelector("#closeCart");
   const cartItems = document.querySelector("#cartItems");
   const cartEmpty = document.querySelector("#cartEmpty");
+  const cartSubtotal = document.querySelector("#cartSubtotal");
+  const cartShipping = document.querySelector("#cartShipping");
   const cartTotal = document.querySelector("#cartTotal");
   const checkoutCart = document.querySelector("#checkoutCart");
   const clearCart = document.querySelector("#clearCart");
+  const checkoutName = document.querySelector("#checkoutName");
+  const checkoutPhone = document.querySelector("#checkoutPhone");
+  const checkoutAddress = document.querySelector("#checkoutAddress");
+  const checkoutCity = document.querySelector("#checkoutCity");
+  const checkoutNote = document.querySelector("#checkoutNote");
+  const shippingCost = document.querySelector("#shippingCost");
   const mobileCartBar = document.querySelector("#mobileCartBar");
   const mobileCartSummary = document.querySelector("#mobileCartSummary");
+  const pageLoaderOverlay = document.querySelector("#pageLoaderOverlay");
   const toast = document.querySelector("#toast");
 
   const whatsappNumber = "6281236773427";
-  const productBatchSize = 8;
+  let linkLoading = false;
   const formatter = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -140,16 +149,13 @@
 
   function renderProducts() {
     const list = getFilteredProducts();
-    const visibleList = list.slice(0, state.visibleCount);
-    const remainingCount = Math.max(list.length - visibleList.length, 0);
     const currentSeries = state.series === "all" ? "Semua Produk" : state.series;
     resultTitle.textContent = currentSeries;
-    resultCount.textContent = remainingCount > 0 ? `${visibleList.length} dari ${list.length} item` : `${list.length} item`;
+    resultCount.textContent = `${list.length} item`;
     emptyState.hidden = list.length > 0;
-    loadMoreWrap.hidden = remainingCount === 0;
-    loadMoreProducts.textContent = "Lihat semua";
+    loadMoreWrap.hidden = true;
 
-    productGrid.innerHTML = visibleList.map((product) => {
+    productGrid.innerHTML = list.map((product) => {
       const isFavorite = state.favorites.has(product.id);
       const isSoldOut = product.status === "sold-out";
       return `
@@ -190,7 +196,7 @@
   }
 
   function resetVisibleCount() {
-    state.visibleCount = productBatchSize;
+    state.visibleCount = Number.MAX_SAFE_INTEGER;
   }
 
   function orderText(product) {
@@ -226,6 +232,11 @@
     return getCartProducts().reduce((total, product) => total + product.price * product.qty, 0);
   }
 
+  function parseShippingValue() {
+    const shipping = Number(shippingCost.value || 0);
+    return Number.isFinite(shipping) && shipping > 0 ? shipping : 0;
+  }
+
   function cartButtonLabel(product) {
     if (product.status === "sold-out") return "Sold out";
     const qty = state.cart.get(product.id) || 0;
@@ -254,11 +265,27 @@
   function cartOrderText() {
     const items = getCartProducts();
     if (!items.length) return "Halo Oleena, saya ingin tanya katalog 2026.";
+    const subtotal = getCartTotal();
+    const shipping = parseShippingValue();
+    const total = subtotal + shipping;
+    const customerName = checkoutName.value.trim() || "-";
+    const customerPhone = checkoutPhone.value.trim() || "-";
+    const customerAddress = checkoutAddress.value.trim() || "-";
+    const customerCity = checkoutCity.value.trim() || "-";
+    const note = checkoutNote.value.trim() || "-";
+
     return [
       "Halo Oleena, saya ingin order:",
+      `Nama: ${customerName}`,
+      `No HP: ${customerPhone}`,
+      `Kota/Kecamatan: ${customerCity}`,
+      `Alamat: ${customerAddress}`,
       ...items.map((product, index) => `${index + 1}. ${product.name} - ${product.series} x${product.qty} (${formatPrice(product.price * product.qty)})`),
-      `Total estimasi: ${formatPrice(getCartTotal())}`,
-      "Mohon konfirmasi stok dan ongkirnya ya."
+      `Subtotal produk: ${formatPrice(subtotal)}`,
+      `Ongkir: ${formatPrice(shipping)}`,
+      `Total bayar: ${formatPrice(total)}`,
+      `Catatan: ${note}`,
+      "Mohon konfirmasi stok, ongkir, dan pembayaran ya."
     ].join("\n");
   }
 
@@ -307,16 +334,26 @@
   function renderCart() {
     const items = getCartProducts();
     const itemCount = getCartItemCount();
+    const subtotal = getCartTotal();
+    const shipping = parseShippingValue();
+    const grandTotal = subtotal + shipping;
+    const hasCustomerData = checkoutName.value.trim()
+      && checkoutPhone.value.trim()
+      && checkoutAddress.value.trim()
+      && checkoutCity.value.trim();
+
     cartCount.textContent = itemCount;
-    mobileCartSummary.textContent = `${itemCount} item - ${formatPrice(getCartTotal())}`;
+    mobileCartSummary.textContent = `${itemCount} item - ${formatPrice(grandTotal)}`;
     mobileCartBar.hidden = itemCount === 0;
     openCart.setAttribute("aria-label", `Buka keranjang, ${itemCount} item`);
     cartEmpty.hidden = items.length > 0;
     cartItems.hidden = items.length === 0;
     clearCart.disabled = items.length === 0;
-    cartTotal.textContent = formatPrice(getCartTotal());
+    cartSubtotal.textContent = formatPrice(subtotal);
+    cartShipping.textContent = formatPrice(shipping);
+    cartTotal.textContent = formatPrice(grandTotal);
     checkoutCart.href = cartWhatsappUrl();
-    checkoutCart.setAttribute("aria-disabled", items.length === 0 ? "true" : "false");
+    checkoutCart.setAttribute("aria-disabled", items.length === 0 || !hasCustomerData ? "true" : "false");
 
     cartItems.innerHTML = items.map((product) => `
       <article class="cart-item">
@@ -511,6 +548,47 @@
   });
 
   clearCart.addEventListener("click", clearCartItems);
+
+  [checkoutName, checkoutPhone, checkoutAddress, checkoutCity, checkoutNote, shippingCost].forEach((field) => {
+    field.addEventListener("input", () => {
+      renderCart();
+    });
+  });
+
+  checkoutCart.addEventListener("click", (event) => {
+    if (checkoutCart.getAttribute("aria-disabled") !== "true") return;
+    event.preventDefault();
+    showToast("Lengkapi data penerima dan isi keranjang terlebih dahulu");
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || linkLoading) return;
+    const link = event.target.closest("a[href]");
+    if (!link) return;
+    if (link.getAttribute("aria-disabled") === "true") return;
+
+    const href = link.getAttribute("href");
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+
+    event.preventDefault();
+    linkLoading = true;
+    if (pageLoaderOverlay) pageLoaderOverlay.hidden = false;
+
+    const target = link.getAttribute("target");
+    const rel = link.getAttribute("rel") || "";
+    const isExternalTab = target === "_blank";
+    const useNoOpener = rel.includes("noopener") || rel.includes("noreferrer");
+
+    window.setTimeout(() => {
+      if (isExternalTab) {
+        window.open(href, "_blank", useNoOpener ? "noopener,noreferrer" : "");
+        if (pageLoaderOverlay) pageLoaderOverlay.hidden = true;
+        linkLoading = false;
+        return;
+      }
+      window.location.href = href;
+    }, 5000);
+  });
 
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && dialog.open) closeProduct();
