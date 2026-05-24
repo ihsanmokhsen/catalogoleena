@@ -316,6 +316,29 @@ a:focus-visible {
   gap: 18px 10px;
 }
 
+.load-more-row {
+  display: grid;
+  place-items: center;
+  padding: 24px 0 4px;
+}
+
+.load-more-button {
+  min-height: 42px;
+  min-width: min(100%, 220px);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0 16px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.load-more-button:active {
+  background: var(--ink);
+  color: #fff;
+}
+
 .product-card {
   display: grid;
   gap: 8px;

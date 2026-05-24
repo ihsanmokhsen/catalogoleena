@@ -5,6 +5,7 @@
     series: "all",
     status: "all",
     sort: "featured",
+    visibleCount: 8,
     favorites: new Set(JSON.parse(localStorage.getItem("oleena:favorites") || "[]")),
     cart: new Map(JSON.parse(localStorage.getItem("oleena:cart") || "[]"))
   };
@@ -17,6 +18,8 @@
   const resetFilters = document.querySelector("#resetFilters");
   const resultTitle = document.querySelector("#resultTitle");
   const resultCount = document.querySelector("#resultCount");
+  const loadMoreWrap = document.querySelector("#loadMoreWrap");
+  const loadMoreProducts = document.querySelector("#loadMoreProducts");
   const emptyState = document.querySelector("#emptyState");
   const totalProducts = document.querySelector("#totalProducts");
   const totalSeries = document.querySelector("#totalSeries");
@@ -37,7 +40,7 @@
   const toast = document.querySelector("#toast");
 
   const whatsappNumber = "6281236773427";
-  const instagramUrl = "https://www.instagram.com/oleena.goods/";
+  const productBatchSize = 8;
   const formatter = new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -137,12 +140,16 @@
 
   function renderProducts() {
     const list = getFilteredProducts();
+    const visibleList = list.slice(0, state.visibleCount);
+    const remainingCount = Math.max(list.length - visibleList.length, 0);
     const currentSeries = state.series === "all" ? "Semua Produk" : state.series;
     resultTitle.textContent = currentSeries;
-    resultCount.textContent = `${list.length} item`;
+    resultCount.textContent = remainingCount > 0 ? `${visibleList.length} dari ${list.length} item` : `${list.length} item`;
     emptyState.hidden = list.length > 0;
+    loadMoreWrap.hidden = remainingCount === 0;
+    loadMoreProducts.textContent = remainingCount > productBatchSize ? `Lihat ${productBatchSize} lagi` : `Lihat ${remainingCount} lagi`;
 
-    productGrid.innerHTML = list.map((product) => {
+    productGrid.innerHTML = visibleList.map((product) => {
       const isFavorite = state.favorites.has(product.id);
       const isSoldOut = product.status === "sold-out";
       const cartQty = state.cart.get(product.id) || 0;
@@ -181,6 +188,10 @@
     renderSeriesFilters();
     renderProducts();
     renderCart();
+  }
+
+  function resetVisibleCount() {
+    state.visibleCount = productBatchSize;
   }
 
   function orderText(product) {
@@ -341,7 +352,6 @@
         <div class="dialog-actions">
           <a class="primary-button" href="${whatsappUrl(product)}" target="_blank" rel="noreferrer">Order WhatsApp</a>
           <button class="secondary-button" type="button" data-add-cart="${product.id}" ${product.status === "sold-out" ? "disabled" : ""}>Tambah keranjang</button>
-          <a class="secondary-button" href="${instagramUrl}" target="_blank" rel="noreferrer">Buka Instagram</a>
           <button class="secondary-button" type="button" data-copy="${product.id}">Salin detail</button>
         </div>
       </section>
@@ -357,16 +367,19 @@
 
   searchInput.addEventListener("input", (event) => {
     state.query = event.target.value;
+    resetVisibleCount();
     renderProducts();
   });
 
   statusFilter.addEventListener("change", (event) => {
     state.status = event.target.value;
+    resetVisibleCount();
     renderProducts();
   });
 
   sortFilter.addEventListener("change", (event) => {
     state.sort = event.target.value;
+    resetVisibleCount();
     renderProducts();
   });
 
@@ -375,6 +388,7 @@
     state.series = "all";
     state.status = "all";
     state.sort = "featured";
+    resetVisibleCount();
     searchInput.value = "";
     statusFilter.value = "all";
     sortFilter.value = "featured";
@@ -385,7 +399,13 @@
     const button = event.target.closest("[data-series]");
     if (!button) return;
     state.series = button.dataset.series;
+    resetVisibleCount();
     render();
+  });
+
+  loadMoreProducts.addEventListener("click", () => {
+    state.visibleCount += productBatchSize;
+    renderProducts();
   });
 
   productGrid.addEventListener("click", (event) => {
