@@ -152,7 +152,6 @@
     productGrid.innerHTML = visibleList.map((product) => {
       const isFavorite = state.favorites.has(product.id);
       const isSoldOut = product.status === "sold-out";
-      const cartQty = state.cart.get(product.id) || 0;
       return `
         <article class="product-card ${isSoldOut ? "is-sold-out" : ""}">
           <div class="product-media">
@@ -171,7 +170,7 @@
               <button class="details-button" type="button" data-product="${product.id}">View</button>
             </div>
             <button class="cart-add-button" type="button" data-add-cart="${product.id}" ${isSoldOut ? "disabled" : ""}>
-              ${isSoldOut ? "Sold out" : cartQty > 0 ? `Add more (${cartQty})` : "Add to cart"}
+              ${cartButtonLabel(product)}
             </button>
           </div>
         </article>
@@ -227,6 +226,31 @@
     return getCartProducts().reduce((total, product) => total + product.price * product.qty, 0);
   }
 
+  function cartButtonLabel(product) {
+    if (product.status === "sold-out") return "Sold out";
+    const qty = state.cart.get(product.id) || 0;
+    return qty > 0 ? `Add more (${qty})` : "Add to cart";
+  }
+
+  function syncProductCartButton(productId) {
+    const product = products.find((item) => item.id === productId);
+    if (!product) return;
+    document.querySelectorAll(".cart-add-button[data-add-cart]").forEach((button) => {
+      if (button.dataset.addCart !== productId) return;
+      button.textContent = cartButtonLabel(product);
+      button.disabled = product.status === "sold-out";
+    });
+  }
+
+  function syncAllProductCartButtons() {
+    document.querySelectorAll(".cart-add-button[data-add-cart]").forEach((button) => {
+      const product = products.find((item) => item.id === button.dataset.addCart);
+      if (!product) return;
+      button.textContent = cartButtonLabel(product);
+      button.disabled = product.status === "sold-out";
+    });
+  }
+
   function cartOrderText() {
     const items = getCartProducts();
     if (!items.length) return "Halo Oleena, saya ingin tanya katalog 2026.";
@@ -250,7 +274,7 @@
     }
     state.cart.set(productId, (state.cart.get(productId) || 0) + 1);
     saveCart();
-    renderProducts();
+    syncProductCartButton(productId);
     renderCart();
     showToast(`${product.name} masuk keranjang`);
   }
@@ -261,21 +285,21 @@
     if (next <= 0) state.cart.delete(productId);
     else state.cart.set(productId, next);
     saveCart();
-    renderProducts();
+    syncProductCartButton(productId);
     renderCart();
   }
 
   function removeFromCart(productId) {
     state.cart.delete(productId);
     saveCart();
-    renderProducts();
+    syncProductCartButton(productId);
     renderCart();
   }
 
   function clearCartItems() {
     state.cart.clear();
     saveCart();
-    renderProducts();
+    syncAllProductCartButtons();
     renderCart();
     showToast("Keranjang dikosongkan");
   }
