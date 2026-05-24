@@ -147,7 +147,7 @@
     resultCount.textContent = remainingCount > 0 ? `${visibleList.length} dari ${list.length} item` : `${list.length} item`;
     emptyState.hidden = list.length > 0;
     loadMoreWrap.hidden = remainingCount === 0;
-    loadMoreProducts.textContent = remainingCount > productBatchSize ? `Lihat ${productBatchSize} lagi` : `Lihat ${remainingCount} lagi`;
+    loadMoreProducts.textContent = "Lihat semua";
 
     productGrid.innerHTML = visibleList.map((product) => {
       const isFavorite = state.favorites.has(product.id);
@@ -404,7 +404,7 @@
   });
 
   loadMoreProducts.addEventListener("click", () => {
-    state.visibleCount += productBatchSize;
+    state.visibleCount = getFilteredProducts().length;
     renderProducts();
   });
 
