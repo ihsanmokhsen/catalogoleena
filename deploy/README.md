@@ -1,63 +1,111 @@
 # Deploy Oleena ke aaPanel
 
-Stack mengikuti standar BPAD Simple PHP Stack: Nginx + PHP-FPM 8.3 + MySQL/MariaDB + PDO.
+Domain: `oleena.hilmimokhsen.my.id`
+Stack: Nginx + PHP-FPM 8.3 + MySQL/MariaDB + PDO (standar BPAD Simple PHP Stack).
 
 ## Struktur
 
 ```text
-bin/         skrip CLI (cari Area ID Biteship)
-public/      webroot (index.html, script.js, styles.css, assets/, api/)
-src/         kode PHP bersama, tidak bisa diakses dari browser
+public/      webroot: katalog (index.html, script.js, styles.css, assets/), api/, admin/
+src/         kode PHP bersama (tidak bisa diakses dari browser)
 config/      config.php berisi kredensial (tidak ikut git)
-database/    schema.sql, data awal, dan seeder
+database/    schema.sql, data awal produk, seeder
+bin/         skrip terminal: cari Area ID, buat admin, cron kedaluwarsa
 deploy/      konfigurasi server
 ```
 
-Domain: `oleena.hilmimokhsen.my.id`
+## Checklist pengaturan (sekali saja)
 
-## Langkah pertama kali
+Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan luar.
 
-1. DNS: buat record **A** `oleena` di zona `hilmimokhsen.my.id` yang mengarah ke IP server aaPanel.
-2. Clone repo ke `/www/wwwroot/oleena.hilmimokhsen.my.id`.
-3. aaPanel > Website > Add site `oleena.hilmimokhsen.my.id`, pilih PHP 8.3, lalu set **Running directory / document root ke `public`**. Di pengaturan PHP 8.3, set `expose_php = Off`.
-4. Tempel isi `deploy/nginx-oleena.conf` ke konfigurasi situs (sesuaikan socket PHP-FPM), lalu aktifkan SSL (Let's Encrypt) dan Force HTTPS.
-5. aaPanel > Databases > Add database `oleena` dengan user khusus `oleena` (bukan root), password acak yang kuat.
-6. Buat konfigurasi:
+### A. Akun yang perlu disiapkan
+
+1. **[akun] Biteship** (biteship.com): daftar, aktifkan **Testing Mode**, salin API key `biteship_test.xxx`.
+2. **[akun] Midtrans** (dashboard.midtrans.com): daftar, pilih environment **Sandbox**, buka Settings > Access Keys, lalu salin **Server Key** (`SB-Mid-server-xxx`).
+
+### B. DNS dan situs
+
+3. DNS: tambahkan record **A** `oleena` di zona `hilmimokhsen.my.id` yang mengarah ke IP server aaPanel.
+4. Di server, clone repo:
    ```bash
+   cd /www/wwwroot && git clone <url-repo> oleena.hilmimokhsen.my.id
+   ```
+5. aaPanel > Website > Add site `oleena.hilmimokhsen.my.id`, PHP 8.3. Lalu di pengaturan situs:
+   - **Site directory > Running directory: `/public`**
+   - SSL: Let's Encrypt, lalu aktifkan **Force HTTPS**
+   - Config: tempel isi `deploy/nginx-oleena.conf` (sesuaikan `fastcgi_pass` dengan socket PHP 8.3 di server)
+6. aaPanel > App Store > PHP 8.3 > Settings: pastikan ekstensi `pdo_mysql`, `curl`, dan `mbstring` aktif, lalu set `expose_php = Off`.
+
+### C. Database dan konfigurasi
+
+7. aaPanel > Databases > Add database `oleena`, dengan user `oleena` dan password acak yang kuat (jangan pakai root).
+8. Buat file konfigurasi:
+   ```bash
+   cd /www/wwwroot/oleena.hilmimokhsen.my.id
    cp config/config.example.php config/config.php
    chmod 640 config/config.php
+   chown root:www config/config.php
    ```
-   lalu isi kredensial database.
-7. Buat tabel dan impor produk:
+   Lalu isi `config/config.php`:
+   - `db.pass`: password database dari langkah 7
+   - `shipping.biteship_key`: key dari langkah 1
+   - `midtrans.server_key`: Server Key dari langkah 2 (`is_production` tetap `false`)
+9. Buat tabel dan impor produk:
    ```bash
    mysql -u oleena -p oleena < database/schema.sql
    php database/seed_products.php
    ```
-8. Buka `https://oleena.hilmimokhsen.my.id/api/products.php`, pastikan muncul JSON produk.
+10. Cari Area ID lokasi toko, lalu isi ke `shipping.origin_area_id`:
+    ```bash
+    php bin/find-area.php "nama kecamatan toko"
+    ```
+11. Buat akun admin (password minimal 12 karakter):
+    ```bash
+    php bin/create-admin.php oleena
+    ```
 
-## Ongkir (Biteship)
+### D. Webhook dan cron
 
-1. Daftar di biteship.com, aktifkan **Testing Mode**, lalu salin API key `biteship_test.xxx` ke `shipping.biteship_key` di `config/config.php`.
-2. Cari Area ID lokasi toko dan isi ke `shipping.origin_area_id`:
-   ```bash
-   php bin/find-area.php "nama kecamatan toko"
-   ```
-3. Atur berat asli produk (gram) di database, contoh:
-   ```sql
-   UPDATE products SET weight_gram = 200 WHERE series = 'Layali Series 2.0';
-   ```
-4. Coba cek ongkir di keranjang. Jika sudah benar, ganti key menjadi `biteship_live.xxx`.
+12. Midtrans Dashboard > Settings > Payment > **Notification URL**:
+    `https://oleena.hilmimokhsen.my.id/api/midtrans-notification.php`
+13. aaPanel > Cron > Add, tipe Shell Script, jalan **tiap 15 menit**:
+    ```bash
+    php /www/wwwroot/oleena.hilmimokhsen.my.id/bin/expire-orders.php
+    ```
 
-Catatan keamanan: API key hanya ada di server. Browser hanya mengirim Area ID tujuan dan daftar `{id, qty}`. Berat dan nilai paket dihitung ulang dari database. Endpoint ongkir dibatasi per IP (rate limit) dan hasilnya di-cache (wilayah 7 hari, tarif 1 jam) supaya hemat kuota API.
+### E. Data produk
 
-Saat skema berubah (misalnya setelah `git pull`), jalankan lagi `mysql -u oleena -p oleena < database/schema.sql`. Tabel yang sudah ada tidak akan ditimpa.
+14. Login ke `https://oleena.hilmimokhsen.my.id/admin/` > **Produk**, lalu isi **berat asli** tiap produk (default 250 g). Berat ini menentukan ongkir.
 
-## Update
+### F. Uji coba (mode Sandbox)
+
+15. Buka situs, masukkan produk ke keranjang, pilih tujuan dan kurir, lalu buat pesanan dan klik **Bayar sekarang**.
+16. Di halaman Midtrans Sandbox, pilih metode (misalnya QRIS atau VA), lalu selesaikan pembayaran lewat simulator: https://simulator.sandbox.midtrans.com
+17. Pastikan status pesanan menjadi **Sudah dibayar** di situs dan **Dibayar** di `/admin/`.
+
+### G. Go-live
+
+18. Midtrans: ajukan aktivasi Production. Setelah disetujui, ganti `midtrans.server_key` ke key Production (`Mid-server-xxx`), set `is_production => true`, lalu daftarkan ulang Notification URL di environment Production.
+19. Biteship: matikan Testing Mode, lalu ganti `shipping.biteship_key` ke `biteship_live.xxx`.
+20. Lakukan satu transaksi asli bernominal kecil, lalu refund dari Dashboard Midtrans.
+
+## Update aplikasi
 
 ```bash
+cd /www/wwwroot/oleena.hilmimokhsen.my.id
 git pull
-php database/seed_products.php   # hanya jika database/products.js berubah
+mysql -u oleena -p oleena < database/schema.sql   # aman diulang, tabel yang ada tidak ditimpa
 ```
+
+## Catatan keamanan
+
+- Kredensial (DB, Biteship, Midtrans) hanya ada di `config/config.php`, di luar webroot dan tidak ikut git.
+- Harga, berat, ongkir, dan total selalu dihitung ulang di server. Angka dari browser tidak dipakai.
+- Status **Dibayar** hanya diberikan oleh webhook Midtrans yang tanda tangannya valid, nominalnya cocok, dan sudah dikonfirmasi ulang ke Get Status API. Admin tidak bisa menandai pesanan dibayar secara manual.
+- Semua notifikasi Midtrans dicatat di tabel `payment_notifications` untuk audit.
+- Endpoint publik dibatasi per IP (rate limit). Login admin dibatasi 5 percobaan per 15 menit.
+- Panel admin memakai CSRF token, cookie sesi `HttpOnly` + `SameSite=Strict` + `Secure`, dan otomatis logout setelah 2 jam tidak aktif.
+- Detail kegagalan API hanya dicatat di log error PHP. Pengunjung hanya melihat pesan umum.
 
 ## Development lokal
 

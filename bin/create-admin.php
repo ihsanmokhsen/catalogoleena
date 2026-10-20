@@ -20,7 +20,8 @@ if (!preg_match('/^[a-z0-9_.-]{3,60}$/', $username)) {
 function ask_hidden(string $prompt): string
 {
     fwrite(STDOUT, $prompt);
-    $interactive = function_exists('posix_isatty') ? posix_isatty(STDIN) : true;
+    // aaPanel sering menonaktifkan shell_exec. Jika begitu, password tetap bisa diketik tetapi akan terlihat di layar.
+    $interactive = (function_exists('posix_isatty') ? posix_isatty(STDIN) : true) && function_exists('shell_exec');
     if ($interactive) {
         shell_exec('stty -echo');
     }
