@@ -4,3 +4,6 @@ public/assets/.DS_Store
 
 # Kredensial lokal/server
 config/config.php
+
+# Foto produk hasil upload admin (backup terpisah dari git)
+public/uploads/

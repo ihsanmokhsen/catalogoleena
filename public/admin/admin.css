@@ -107,3 +107,30 @@ tfoot td, tfoot th { color: var(--ink); }
 .check { display: inline-flex; align-items: center; gap: 4px; }
 .check input { min-height: auto; }
 .pager { display: flex; gap: 12px; margin-top: 12px; }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.toolbar h1 { margin: 0; }
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.thumb { width: 42px; height: 56px; object-fit: cover; border-radius: 3px; vertical-align: middle; margin-right: 8px; background: var(--soft); }
+.name-cell { display: flex; align-items: center; gap: 4px; min-width: 200px; }
+
+.product-form { display: grid; gap: 20px; }
+@media (min-width: 760px) { .product-form { grid-template-columns: 260px 1fr; align-items: start; } }
+.photo-field { display: grid; gap: 8px; }
+.photo-field img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: var(--soft); }
+.photo-field img[hidden] { display: none; }
+.photo-field input[type="file"] { padding: 6px; min-height: auto; width: 100%; }
+.fields { display: grid; gap: 12px; }
+.fields label { display: grid; gap: 4px; }
+.fields label.check { display: inline-flex; }
+.fields button { justify-self: start; }

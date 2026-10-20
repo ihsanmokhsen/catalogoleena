@@ -24,11 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/admin/products.php#p' . $id);
 }
 
-$products = db()->query('SELECT id, series, name, price, weight_gram, status, is_active FROM products ORDER BY catalog_page, sort_order, id')->fetchAll();
+$products = db()->query('SELECT id, series, name, price, weight_gram, status, image, is_active FROM products ORDER BY catalog_page, sort_order, id')->fetchAll();
 
 admin_header('Produk', $admin);
 ?>
-    <h1>Produk</h1>
+    <div class="toolbar">
+      <h1>Produk</h1>
+      <a class="button-link" href="/admin/product.php">+ Tambah produk</a>
+    </div>
     <p class="hint">Berat dipakai untuk menghitung ongkir. Perubahan harga hanya berlaku untuk pesanan baru.</p>
     <div class="table-wrap">
       <table>
@@ -36,7 +39,12 @@ admin_header('Produk', $admin);
         <tbody>
 <?php foreach ($products as $product): ?>
           <tr id="p<?= (int) $product['id'] ?>">
-            <td><?= h($product['name']) ?> <small><?= h($product['series']) ?></small></td>
+            <td>
+              <div class="name-cell">
+                <img class="thumb" src="/<?= h($product['image']) ?>" alt="" loading="lazy">
+                <div><?= h($product['name']) ?><br><small><?= h($product['series']) ?></small><br><a href="/admin/product.php?id=<?= (int) $product['id'] ?>">Edit &amp; foto</a></div>
+              </div>
+            </td>
             <td colspan="5">
               <form method="post" class="row-form">
                 <?= csrf_field() ?>

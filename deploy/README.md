@@ -34,7 +34,14 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
    - **Site directory > Running directory: `/public`**
    - SSL: Let's Encrypt, lalu aktifkan **Force HTTPS**
    - Config: tempel isi `deploy/nginx-oleena.conf` (sesuaikan `fastcgi_pass` dengan socket PHP 8.3 di server)
-6. aaPanel > App Store > PHP 8.3 > Settings: pastikan ekstensi `pdo_mysql`, `curl`, dan `mbstring` aktif, lalu set `expose_php = Off`.
+6. aaPanel > App Store > PHP 8.3 > Settings:
+   - pastikan ekstensi `pdo_mysql`, `curl`, `mbstring`, `gd` (dengan dukungan JPEG/WebP), `fileinfo`, dan `exif` aktif
+   - set `expose_php = Off`, `upload_max_filesize = 8M`, dan `post_max_size = 10M`
+   - buat folder upload yang bisa ditulis PHP:
+     ```bash
+     mkdir -p /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads/products
+     chown -R www:www /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads
+     ```
 
 ### C. Database dan konfigurasi
 
@@ -97,6 +104,10 @@ git pull
 mysql -u oleena -p oleena < database/schema.sql   # aman diulang, tabel yang ada tidak ditimpa
 ```
 
+## Backup
+
+Foto produk hasil upload disimpan di `public/uploads/products/` dan **tidak ikut git**. Sertakan folder ini dan database `oleena` di backup aaPanel (Cron > Backup Site & Database).
+
 ## Catatan keamanan
 
 - Kredensial (DB, Biteship, Midtrans) hanya ada di `config/config.php`, di luar webroot dan tidak ikut git.
@@ -105,6 +116,7 @@ mysql -u oleena -p oleena < database/schema.sql   # aman diulang, tabel yang ada
 - Semua notifikasi Midtrans dicatat di tabel `payment_notifications` untuk audit.
 - Endpoint publik dibatasi per IP (rate limit). Login admin dibatasi 5 percobaan per 15 menit.
 - Panel admin memakai CSRF token, cookie sesi `HttpOnly` + `SameSite=Strict` + `Secure`, dan otomatis logout setelah 2 jam tidak aktif.
+- Foto upload dibuat ulang lewat GD (metadata dan isi tersembunyi terbuang), diberi nama acak oleh server, dan folder `uploads/` hanya melayani file `.jpg` statis.
 - Detail kegagalan API hanya dicatat di log error PHP. Pengunjung hanya melihat pesan umum.
 
 ## Development lokal
