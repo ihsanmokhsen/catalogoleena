@@ -149,10 +149,13 @@ function shipping_rates(string $destinationAreaId, array $package): array
         ]],
     ]);
 
+    // Hanya tampilkan kurir yang dipakai toko, walau API mengembalikan kurir lain.
+    $allowed = array_map('trim', explode(',', $config['couriers']));
     $rates = [];
     foreach ($data['pricing'] ?? [] as $price) {
         $amount = (int) ($price['price'] ?? 0);
-        if ($amount <= 0 || empty($price['courier_code']) || empty($price['courier_service_code'])) {
+        if ($amount <= 0 || empty($price['courier_code']) || empty($price['courier_service_code'])
+            || !in_array($price['courier_code'], $allowed, true)) {
             continue;
         }
         $rates[] = [

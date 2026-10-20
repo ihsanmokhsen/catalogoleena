@@ -36,19 +36,20 @@ $pdo->prepare(
 $customers = [
     ['Maria Ndun', '6281234500011', "Jl. Frans Seda No. 12, RT 03/RW 01\nKel. Fatululi", 'IDNP19IDNC300IDND3800IDZ85111', 'Oebobo, Kupang, Nusa Tenggara Timur. 85111'],
     ['Yohana Tefa', '6281339200022', "Jl. Timor Raya Km 7, Oesapa", 'IDNP19IDNC300IDND3801IDZ85228', 'Kelapa Lima, Kupang, Nusa Tenggara Timur. 85228'],
-    ['Siti Rahmawati', '6281288800033', "Jl. Bintaro Utama 3 Blok C2 No. 9", 'IDNP6IDNC148IDND843IDZ12250', 'Pesanggrahan, Jakarta Selatan, DKI Jakarta. 12250'],
-    ['Nurul Aini', '6285722100044', "Jl. Dago No. 88, Coblong", 'IDNP9IDNC23IDND263IDZ40115', 'Coblong, Bandung, Jawa Barat. 40132'],
-    ['Dewi Lestari', '6281133400055', "Jl. Embong Malang 21, Tegalsari", 'IDNP11IDNC444IDND5266IDZ60271', 'Tegalsari, Surabaya, Jawa Timur. 60262'],
-    ['Ni Luh Ayu', '6281999100066', "Jl. Raya Kuta Gg. Melati 4", 'IDNP2IDNC17IDND200IDZ80361', 'Kuta, Badung, Bali. 80361'],
-    ['Andi Fatimah', '6285255500077', "Jl. Boulevard Panakkukang Ruko B/10", 'IDNP28IDNC254IDND3335IDZ90231', 'Panakkukang, Makassar, Sulawesi Selatan. 90231'],
-    ['Rina Siregar', '6281266300088', "Jl. Setia Budi No. 45, Medan Baru", 'IDNP34IDNC278IDND3523IDZ20112', 'Medan Baru, Medan, Sumatera Utara. 20153'],
-    ['Agnes Wonda', '6281244700099', "Jl. Ahmad Yani 5, Jayapura Utara", 'IDNP24IDNC371IDND4402IDZ99111', 'Jayapura Utara, Jayapura, Papua. 99111'],
+    ['Fransiska Bria', '6282144300033', "Jl. Ahmad Yani No. 21, Kel. Fatubenao", 'IDNP19IDNC304IDND3840IDZ85711', 'Atambua Barat, Belu, Nusa Tenggara Timur. 85711'],
+    ['Theresia Kewa', '6281237400044', "Jl. Moa Toda No. 5, Kel. Kota Uneng", 'IDNP19IDNC307IDND3870IDZ86111', 'Alok, Sikka, Nusa Tenggara Timur. 86111'],
+    ['Agustina Raja', '6285239500055', "Jl. Soekarno, Kel. Hambala", 'IDNP19IDNC314IDND3940IDZ87111', 'Kota Waingapu, Sumba Timur, Nusa Tenggara Timur. 87112'],
+    ['Elisabeth Nggaba', '6281246600066', "Jl. Soekarno Hatta, Kampung Ujung", 'IDNP19IDNC311IDND3910IDZ86754', 'Komodo, Labuan Bajo, Manggarai Barat, Nusa Tenggara Timur. 86763'],
+    ['Ni Luh Ayu', '6281999100077', "Jl. Raya Kuta Gg. Melati 4", 'IDNP2IDNC17IDND200IDZ80361', 'Kuta, Badung, Bali. 80361'],
+    ['Siti Rahmawati', '6281288800088', "Jl. Bintaro Utama 3 Blok C2 No. 9", 'IDNP6IDNC148IDND843IDZ12250', 'Pesanggrahan, Jakarta Selatan, DKI Jakarta. 12250'],
+    ['Andi Fatimah', '6285255500099', "Jl. Boulevard Panakkukang Ruko B/10", 'IDNP28IDNC254IDND3335IDZ90231', 'Panakkukang, Makassar, Sulawesi Selatan. 90231'],
 ];
 $couriers = [
     ['jne', 'reg', 'JNE Reguler'],
-    ['sicepat', 'reg', 'SiCepat REG'],
     ['jnt', 'ez', 'J&T EZ'],
-    ['pos', 'kilat', 'POS Indonesia Kilat Khusus'],
+    ['lion', 'regpack', 'Lion Parcel REGPACK'],
+    ['jne', 'oke', 'JNE OKE'],
+    ['lion', 'jagopack', 'Lion Parcel JAGOPACK'],
 ];
 // [status, hari lalu, status transaksi Midtrans atau null bila belum dibuka]
 $plan = [

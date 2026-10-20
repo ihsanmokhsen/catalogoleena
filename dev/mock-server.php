@@ -32,18 +32,38 @@ function load_state(string $file): array
 
 // ---------- Biteship ----------
 
+// [area id, nama, kode pos, zona tarif dari Kupang]
+// Zona: 1 Kota Kupang, 2 daratan Timor, 3 pulau lain di NTT, 4 Bali/NTB/Jawa, 5 Sulawesi/Kalimantan, 6 Sumatera/Papua.
 const AREAS = [
     ['IDNP19IDNC300IDND3800IDZ85111', 'Oebobo, Kupang, Nusa Tenggara Timur. 85111', 85111, 1],
     ['IDNP19IDNC300IDND3801IDZ85228', 'Kelapa Lima, Kupang, Nusa Tenggara Timur. 85228', 85228, 1],
-    ['IDNP19IDNC301IDND3810IDZ85361', 'Kota Soe, Timor Tengah Selatan, Nusa Tenggara Timur. 85511', 85511, 2],
+    ['IDNP19IDNC300IDND3802IDZ85119', 'Maulafa, Kupang, Nusa Tenggara Timur. 85148', 85148, 1],
+    ['IDNP19IDNC300IDND3803IDZ85361', 'Alak, Kupang, Nusa Tenggara Timur. 85231', 85231, 1],
+    ['IDNP19IDNC300IDND3804IDZ85225', 'Kota Raja, Kupang, Nusa Tenggara Timur. 85119', 85119, 1],
+    ['IDNP19IDNC301IDND3810IDZ85361', 'Kupang Tengah, Kabupaten Kupang, Nusa Tenggara Timur. 85361', 85361, 1],
+    ['IDNP19IDNC302IDND3820IDZ85511', 'Kota Soe, Timor Tengah Selatan, Nusa Tenggara Timur. 85511', 85511, 2],
+    ['IDNP19IDNC303IDND3830IDZ85613', 'Kota Kefamenanu, Timor Tengah Utara, Nusa Tenggara Timur. 85613', 85613, 2],
+    ['IDNP19IDNC304IDND3840IDZ85711', 'Atambua Barat, Belu, Nusa Tenggara Timur. 85711', 85711, 2],
+    ['IDNP19IDNC305IDND3850IDZ85761', 'Malaka Tengah, Malaka, Nusa Tenggara Timur. 85762', 85762, 2],
+    ['IDNP19IDNC306IDND3860IDZ85512', 'Lobalain, Rote Ndao, Nusa Tenggara Timur. 85912', 85912, 3],
+    ['IDNP19IDNC307IDND3870IDZ86111', 'Alok, Sikka, Nusa Tenggara Timur. 86111', 86111, 3],
+    ['IDNP19IDNC308IDND3880IDZ86311', 'Ende Tengah, Ende, Nusa Tenggara Timur. 86319', 86319, 3],
+    ['IDNP19IDNC309IDND3890IDZ86411', 'Bajawa, Ngada, Nusa Tenggara Timur. 86413', 86413, 3],
+    ['IDNP19IDNC310IDND3900IDZ86511', 'Langke Rembong, Manggarai, Nusa Tenggara Timur. 86511', 86511, 3],
+    ['IDNP19IDNC311IDND3910IDZ86754', 'Komodo, Labuan Bajo, Manggarai Barat, Nusa Tenggara Timur. 86763', 86763, 3],
+    ['IDNP19IDNC312IDND3920IDZ86211', 'Larantuka, Flores Timur, Nusa Tenggara Timur. 86213', 86213, 3],
+    ['IDNP19IDNC313IDND3930IDZ85811', 'Teluk Mutiara, Alor, Nusa Tenggara Timur. 85811', 85811, 3],
+    ['IDNP19IDNC314IDND3940IDZ87111', 'Kota Waingapu, Sumba Timur, Nusa Tenggara Timur. 87112', 87112, 3],
+    ['IDNP19IDNC315IDND3950IDZ87211', 'Kota Waikabubak, Sumba Barat, Nusa Tenggara Timur. 87211', 87211, 3],
+    ['IDNP2IDNC17IDND200IDZ80361', 'Kuta, Badung, Bali. 80361', 80361, 4],
+    ['IDNP18IDNC290IDND3700IDZ83111', 'Mataram, Mataram, Nusa Tenggara Barat. 83121', 83121, 4],
     ['IDNP6IDNC148IDND843IDZ12250', 'Pesanggrahan, Jakarta Selatan, DKI Jakarta. 12250', 12250, 4],
-    ['IDNP6IDNC147IDND836IDZ10110', 'Gambir, Jakarta Pusat, DKI Jakarta. 10110', 10110, 4],
     ['IDNP9IDNC23IDND263IDZ40115', 'Coblong, Bandung, Jawa Barat. 40132', 40132, 4],
-    ['IDNP11IDNC444IDND5266IDZ60271', 'Tegalsari, Surabaya, Jawa Timur. 60262', 60262, 3],
-    ['IDNP2IDNC17IDND200IDZ80361', 'Kuta, Badung, Bali. 80361', 80361, 2],
-    ['IDNP28IDNC254IDND3335IDZ90231', 'Panakkukang, Makassar, Sulawesi Selatan. 90231', 90231, 2],
-    ['IDNP34IDNC278IDND3523IDZ20112', 'Medan Baru, Medan, Sumatera Utara. 20153', 20153, 5],
-    ['IDNP24IDNC371IDND4402IDZ99111', 'Jayapura Utara, Jayapura, Papua. 99111', 99111, 5],
+    ['IDNP11IDNC444IDND5266IDZ60271', 'Tegalsari, Surabaya, Jawa Timur. 60262', 60262, 4],
+    ['IDNP28IDNC254IDND3335IDZ90231', 'Panakkukang, Makassar, Sulawesi Selatan. 90231', 90231, 5],
+    ['IDNP14IDNC200IDND2500IDZ76114', 'Balikpapan Kota, Balikpapan, Kalimantan Timur. 76111', 76111, 5],
+    ['IDNP34IDNC278IDND3523IDZ20112', 'Medan Baru, Medan, Sumatera Utara. 20153', 20153, 6],
+    ['IDNP24IDNC371IDND4402IDZ99111', 'Jayapura Utara, Jayapura, Papua. 99111', 99111, 6],
 ];
 
 if (str_starts_with($path, '/v1/')) {
@@ -59,26 +79,32 @@ if (str_starts_with($path, '/v1/')) {
     }
     if ($path === '/v1/rates/couriers') {
         $body = json_decode((string) file_get_contents('php://input'), true);
-        $zone = 3;
+        $zone = 4;
         foreach (AREAS as $area) {
             if ($area[0] === ($body['destination_area_id'] ?? '')) {
                 $zone = $area[3];
             }
         }
         $kg = max(1, (int) ceil(($body['items'][0]['weight'] ?? 1000) / 1000));
-        $base = [1 => 9000, 2 => 22000, 3 => 30000, 4 => 34000, 5 => 52000][$zone];
+        $base = [1 => 9000, 2 => 21000, 3 => 29000, 4 => 46000, 5 => 55000, 6 => 72000][$zone];
+        // [kode kurir, nama, kode layanan, nama layanan, pengali tarif, estimasi, zona maksimum]
         $services = [
-            ['jne', 'JNE', 'reg', 'Reguler', 1.0, '2 - 4 days'],
-            ['jne', 'JNE', 'yes', 'YES', 1.6, '1 - 1 days'],
-            ['sicepat', 'SiCepat', 'reg', 'REG', 0.9, '2 - 3 days'],
-            ['jnt', 'J&T', 'ez', 'EZ', 0.95, '2 - 4 days'],
-            ['pos', 'POS Indonesia', 'kilat', 'Kilat Khusus', 0.85, '3 - 6 days'],
+            ['jne', 'JNE', 'reg', 'Reguler', 1.0, '2 - 3 days', 6],
+            ['jne', 'JNE', 'oke', 'OKE', 0.85, '4 - 7 days', 6],
+            ['jne', 'JNE', 'yes', 'YES', 1.7, '1 - 1 days', 4],
+            ['jnt', 'J&T', 'ez', 'EZ', 0.95, '2 - 4 days', 6],
+            ['lion', 'Lion Parcel', 'regpack', 'REGPACK', 0.9, '2 - 4 days', 6],
+            ['lion', 'Lion Parcel', 'jagopack', 'JAGOPACK', 0.78, '4 - 6 days', 6],
+            ['lion', 'Lion Parcel', 'onepack', 'ONEPACK', 1.55, '1 - 2 days', 5],
+            // Kurir di luar pilihan toko: harus disaring oleh aplikasi.
+            ['sicepat', 'SiCepat', 'reg', 'REG', 0.8, '2 - 3 days', 6],
         ];
-        json_out(['success' => true, 'pricing' => array_map(fn ($s) => [
+        $available = array_filter($services, fn ($s) => $zone <= $s[6]);
+        json_out(['success' => true, 'pricing' => array_values(array_map(fn ($s) => [
             'courier_code' => $s[0], 'courier_name' => $s[1],
             'courier_service_code' => $s[2], 'courier_service_name' => $s[3],
             'duration' => $s[5], 'price' => (int) (round($base * $s[4] * $kg / 500) * 500),
-        ], $services)]);
+        ], $available))]);
     }
     json_out(['success' => false, 'error' => 'Not found'], 404);
 }
