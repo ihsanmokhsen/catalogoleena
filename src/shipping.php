@@ -95,7 +95,7 @@ function shipping_package_from_cart(array $items): array
 
     $placeholders = implode(',', array_fill(0, count($quantities), '?'));
     $stmt = db()->prepare(
-        "SELECT slug, price, weight_gram FROM products
+        "SELECT id, slug, series, name, price, weight_gram FROM products
          WHERE slug IN ($placeholders) AND is_active = 1 AND status = 'available'"
     );
     $stmt->execute(array_keys($quantities));
@@ -106,13 +106,22 @@ function shipping_package_from_cart(array $items): array
 
     $weight = (int) (app_config()['shipping']['packaging_weight_gram'] ?? 0);
     $value = 0;
+    $lines = [];
     foreach ($rows as $row) {
         $qty = $quantities[$row['slug']];
         $weight += (int) $row['weight_gram'] * $qty;
         $value += (int) $row['price'] * $qty;
+        $lines[] = [
+            'productId' => (int) $row['id'],
+            'name' => $row['name'],
+            'series' => $row['series'],
+            'unitPrice' => (int) $row['price'],
+            'qty' => $qty,
+            'lineTotal' => (int) $row['price'] * $qty,
+        ];
     }
 
-    return ['weight' => $weight, 'value' => $value];
+    return ['weight' => $weight, 'value' => $value, 'lines' => $lines];
 }
 
 function shipping_rates(string $destinationAreaId, array $package): array

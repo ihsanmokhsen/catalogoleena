@@ -1156,3 +1156,80 @@ a:focus-visible {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
+
+.order-panel {
+  display: grid;
+  gap: 10px;
+  padding: 18px 14px;
+}
+
+.order-panel[hidden] {
+  display: none;
+}
+
+.order-panel h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  letter-spacing: 0.02em;
+}
+
+.order-status {
+  justify-self: start;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.order-lines {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.order-lines li,
+.order-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.order-summary {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.order-summary dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+  text-align: right;
+}
+
+.order-summary .is-total dd {
+  font-size: 1.1rem;
+}
+
+.order-actions {
+  display: grid;
+  gap: 8px;
+}
+
+button.primary-button {
+  cursor: pointer;
+}
+
+.primary-button[aria-disabled="true"] {
+  opacity: 0.55;
+}

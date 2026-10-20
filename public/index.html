@@ -107,9 +107,10 @@
         <div id="cartItems" class="cart-items"></div>
         <div id="cartEmpty" class="cart-empty">
           <h3>Keranjang masih kosong</h3>
-          <p>Pilih produk dari katalog, lalu lanjut checkout lewat WhatsApp.</p>
+          <p>Pilih produk dari katalog, lalu buat pesanan.</p>
         </div>
-        <footer class="cart-footer">
+        <section id="orderPanel" class="order-panel" hidden aria-live="polite"></section>
+        <footer id="cartFooter" class="cart-footer">
           <section class="checkout-fields" aria-label="Data pengiriman">
             <label>
               <span>Nama penerima</span>
@@ -153,7 +154,7 @@
             <strong id="cartTotal">Rp0</strong>
           </div>
           <div class="cart-footer-actions">
-            <a id="checkoutCart" class="primary-button" href="https://wa.me/6281236773427?text=Halo%20Oleena%2C%20saya%20ingin%20order." target="_blank" rel="noreferrer">Checkout WhatsApp</a>
+            <button id="checkoutCart" class="primary-button" type="button">Buat pesanan</button>
             <button id="clearCart" class="secondary-button" type="button">Hapus keranjang</button>
           </div>
         </footer>

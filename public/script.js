@@ -8,7 +8,10 @@
     visibleCount: Number.MAX_SAFE_INTEGER,
     favorites: new Set(JSON.parse(localStorage.getItem("oleena:favorites") || "[]")),
     cart: new Map(JSON.parse(localStorage.getItem("oleena:cart") || "[]")),
-    shipping: { area: null, areas: [], rates: [] }
+    shipping: { area: null, areas: [], rates: [] },
+    order: null,
+    submitting: false,
+    idempotencyKey: null
   };
 
   const seriesFilters = document.querySelector("#seriesFilters");
@@ -37,6 +40,8 @@
   const cartShipping = document.querySelector("#cartShipping");
   const cartTotal = document.querySelector("#cartTotal");
   const checkoutCart = document.querySelector("#checkoutCart");
+  const cartFooter = document.querySelector("#cartFooter");
+  const orderPanel = document.querySelector("#orderPanel");
   const clearCart = document.querySelector("#clearCart");
   const checkoutName = document.querySelector("#checkoutName");
   const checkoutPhone = document.querySelector("#checkoutPhone");
@@ -416,40 +421,105 @@
     });
   }
 
-  function cartOrderText() {
-    const items = getCartProducts();
-    if (!items.length) return "Halo Oleena, saya ingin tanya katalog 2026.";
-    const subtotal = getCartTotal();
-    const shipping = parseShippingValue();
-    const total = subtotal + shipping;
-    const customerName = checkoutName.value.trim() || "-";
-    const customerPhone = checkoutPhone.value.trim() || "-";
-    const customerAddress = checkoutAddress.value.trim() || "-";
-    const area = state.shipping.area ? state.shipping.area.name : "-";
-    const rate = getSelectedRate();
-    const note = checkoutNote.value.trim() || "-";
+  const orderStatusLabels = {
+    pending_payment: "Menunggu pembayaran",
+    paid: "Sudah dibayar",
+    processing: "Sedang dikemas",
+    shipped: "Sudah dikirim",
+    completed: "Selesai",
+    cancelled: "Dibatalkan",
+    expired: "Kedaluwarsa"
+  };
 
-    return [
-      "Halo Oleena, saya ingin order:",
-      `Nama: ${customerName}`,
-      `No HP: ${customerPhone}`,
-      `Tujuan: ${area}`,
-      `Alamat: ${customerAddress}`,
-      ...items.map((product, index) => `${index + 1}. ${product.name} - ${product.series} x${product.qty} (${formatPrice(product.price * product.qty)})`),
-      `Subtotal produk: ${formatPrice(subtotal)}`,
-      `Kurir: ${rate ? `${rate.courierName} ${rate.serviceName}` : "-"}`,
-      `Ongkir: ${formatPrice(shipping)}`,
-      `Total bayar: ${formatPrice(total)}`,
-      `Catatan: ${note}`,
-      "Mohon konfirmasi stok dan pembayaran ya."
+  function orderWhatsappUrl(order) {
+    const message = [
+      `Halo Oleena, saya sudah membuat pesanan ${order.code}.`,
+      ...order.items.map((item, index) => `${index + 1}. ${item.name} - ${item.series} x${item.qty} (${formatPrice(item.lineTotal)})`),
+      `Kurir: ${order.courier}`,
+      `Total: ${formatPrice(order.total)}`
     ].join("\n");
+    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
   }
 
-  function cartWhatsappUrl() {
-    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(cartOrderText())}`;
+  function saveOrderToken(code, token) {
+    try {
+      const saved = JSON.parse(localStorage.getItem("oleena:orders") || "{}");
+      saved[code] = token;
+      const recent = Object.entries(saved).slice(-10);
+      localStorage.setItem("oleena:orders", JSON.stringify(Object.fromEntries(recent)));
+    } catch (error) {
+      console.warn(error);
+    }
+  }
+
+  function renderOrderPanel() {
+    const order = state.order;
+    orderPanel.hidden = !order;
+    cartFooter.hidden = Boolean(order);
+    if (!order) return;
+    cartItems.hidden = true;
+    cartEmpty.hidden = true;
+
+    const items = order.items.map((item) => `
+      <li><span>${escapeHtml(item.name)} - ${escapeHtml(item.series)} x${item.qty}</span><strong>${formatPrice(item.lineTotal)}</strong></li>
+    `).join("");
+    orderPanel.innerHTML = `
+      <p class="eyebrow">Pesanan dibuat</p>
+      <h3>${escapeHtml(order.code)}</h3>
+      <p class="order-status">${escapeHtml(orderStatusLabels[order.status] || order.status)}</p>
+      <ul class="order-lines">${items}</ul>
+      <dl class="order-summary">
+        <div><dt>Tujuan</dt><dd>${escapeHtml(order.areaName)}</dd></div>
+        <div><dt>Kurir</dt><dd>${escapeHtml(order.courier)}</dd></div>
+        <div><dt>Subtotal</dt><dd>${formatPrice(order.subtotal)}</dd></div>
+        <div><dt>Ongkir</dt><dd>${formatPrice(order.shippingCost)}</dd></div>
+        <div class="is-total"><dt>Total bayar</dt><dd>${formatPrice(order.total)}</dd></div>
+      </dl>
+      <div class="order-actions">
+        <a class="secondary-button" href="${orderWhatsappUrl(order)}" target="_blank" rel="noreferrer">Konfirmasi via WhatsApp</a>
+        <button class="secondary-button" type="button" data-order-close>Belanja lagi</button>
+      </div>
+    `;
+  }
+
+  async function submitOrder() {
+    if (state.submitting) return;
+    const rate = getSelectedRate();
+    state.submitting = true;
+    state.idempotencyKey = state.idempotencyKey || crypto.randomUUID();
+    checkoutCart.textContent = "Memproses...";
+    checkoutCart.setAttribute("aria-disabled", "true");
+    try {
+      const data = await postJson("api/orders.php", {
+        idempotencyKey: state.idempotencyKey,
+        customer: {
+          name: checkoutName.value,
+          phone: checkoutPhone.value,
+          address: checkoutAddress.value,
+          note: checkoutNote.value
+        },
+        shipping: { areaId: state.shipping.area.id, areaName: state.shipping.area.name, rateKey: rate.key },
+        items: Array.from(state.cart.entries()).map(([id, qty]) => ({ id, qty }))
+      });
+      saveOrderToken(data.order.code, data.accessToken);
+      state.order = data.order;
+      state.idempotencyKey = null;
+      state.cart.clear();
+      localStorage.setItem("oleena:cart", "[]");
+      checkoutNote.value = "";
+      syncAllProductCartButtons();
+    } catch (error) {
+      showToast(error.message);
+      if (/kurir/i.test(error.message)) refreshRates();
+    } finally {
+      state.submitting = false;
+      checkoutCart.textContent = "Buat pesanan";
+      renderCart();
+    }
   }
 
   function addToCart(productId) {
+    state.order = null;
     const product = products.find((item) => item.id === productId);
     if (!product || product.status === "sold-out") {
       showToast("Produk ini sedang sold out");
@@ -509,8 +579,7 @@
     cartSubtotal.textContent = formatPrice(subtotal);
     cartShipping.textContent = formatPrice(shipping);
     cartTotal.textContent = formatPrice(grandTotal);
-    checkoutCart.href = cartWhatsappUrl();
-    checkoutCart.setAttribute("aria-disabled", items.length === 0 || !hasCustomerData ? "true" : "false");
+    checkoutCart.setAttribute("aria-disabled", items.length === 0 || !hasCustomerData || state.submitting ? "true" : "false");
 
     cartItems.innerHTML = items.map(escapeProduct).map((product) => `
       <article class="cart-item">
@@ -528,6 +597,7 @@
         <button class="remove-cart-button" type="button" data-cart-remove="${product.id}">Hapus</button>
       </article>
     `).join("");
+    renderOrderPanel();
   }
 
   async function copyOrder(product) {
@@ -752,10 +822,19 @@
     if (!event.target.closest(".area-field")) closeAreaResults();
   });
 
-  checkoutCart.addEventListener("click", (event) => {
-    if (checkoutCart.getAttribute("aria-disabled") !== "true") return;
-    event.preventDefault();
-    showToast("Lengkapi data penerima dan isi keranjang terlebih dahulu");
+  checkoutCart.addEventListener("click", () => {
+    if (checkoutCart.getAttribute("aria-disabled") === "true") {
+      if (!state.submitting) showToast("Lengkapi data penerima, tujuan, dan kurir terlebih dahulu");
+      return;
+    }
+    submitOrder();
+  });
+
+  orderPanel.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-order-close]")) return;
+    state.order = null;
+    cartDialog.close();
+    renderCart();
   });
 
   document.addEventListener("click", (event) => {
