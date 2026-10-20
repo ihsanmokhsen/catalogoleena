@@ -1,5 +1,5 @@
 (function () {
-  const products = window.OLEENA_PRODUCTS || [];
+  let products = [];
   const state = {
     query: "",
     series: "all",
@@ -116,6 +116,33 @@
     return value.toLowerCase().trim();
   }
 
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // Data produk berasal dari database, jadi setiap teks di-escape sebelum masuk innerHTML.
+  function escapeProduct(product) {
+    return {
+      ...product,
+      id: escapeHtml(product.id),
+      name: escapeHtml(product.name),
+      series: escapeHtml(product.series),
+      image: escapeHtml(product.image)
+    };
+  }
+
+  async function loadProducts() {
+    const response = await fetch("api/products.php", { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return Array.isArray(data.products) ? data.products : [];
+  }
+
   function getFilteredProducts() {
     const query = normalize(state.query);
     let list = products.filter((product) => {
@@ -140,8 +167,8 @@
     const counts = bySeries();
     const entries = [["all", "Semua", products.length], ...Array.from(counts, ([name, count]) => [name, name, count])];
     seriesFilters.innerHTML = entries.map(([value, label, count]) => `
-      <button class="segment-button" type="button" data-series="${value}" aria-pressed="${state.series === value}">
-        <span>${label}</span>
+      <button class="segment-button" type="button" data-series="${escapeHtml(value)}" aria-pressed="${state.series === value}">
+        <span>${escapeHtml(label)}</span>
         <span class="segment-count">${count}</span>
       </button>
     `).join("");
@@ -155,9 +182,10 @@
     emptyState.hidden = list.length > 0;
     loadMoreWrap.hidden = true;
 
-    productGrid.innerHTML = list.map((product) => {
-      const isFavorite = state.favorites.has(product.id);
-      const isSoldOut = product.status === "sold-out";
+    productGrid.innerHTML = list.map((raw) => {
+      const isFavorite = state.favorites.has(raw.id);
+      const isSoldOut = raw.status === "sold-out";
+      const product = escapeProduct(raw);
       return `
         <article class="product-card ${isSoldOut ? "is-sold-out" : ""}">
           <div class="product-media">
@@ -172,11 +200,11 @@
             </div>
             <p class="series-name">${product.series}</p>
             <div class="card-actions">
-              <span class="tone-chip" style="--tone: ${getTone(product)}">${product.name}</span>
+              <span class="tone-chip" style="--tone: ${getTone(raw)}">${product.name}</span>
               <button class="details-button" type="button" data-product="${product.id}">View</button>
             </div>
             <button class="cart-add-button" type="button" data-add-cart="${product.id}" ${isSoldOut ? "disabled" : ""}>
-              ${cartButtonLabel(product)}
+              ${cartButtonLabel(raw)}
             </button>
           </div>
         </article>
@@ -355,7 +383,7 @@
     checkoutCart.href = cartWhatsappUrl();
     checkoutCart.setAttribute("aria-disabled", items.length === 0 || !hasCustomerData ? "true" : "false");
 
-    cartItems.innerHTML = items.map((product) => `
+    cartItems.innerHTML = items.map(escapeProduct).map((product) => `
       <article class="cart-item">
         <img src="${product.image}" alt="${product.name} - ${product.series}">
         <div class="cart-item-body">
@@ -398,7 +426,8 @@
     showToast.timer = window.setTimeout(() => toast.classList.remove("is-visible"), 1800);
   }
 
-  function openProduct(product) {
+  function openProduct(raw) {
+    const product = escapeProduct(raw);
     dialogContent.innerHTML = `
       <img class="dialog-image" src="${product.image}" alt="${product.name} - ${product.series}">
       <section class="dialog-details">
@@ -409,9 +438,9 @@
           <span class="pill">${product.status === "sold-out" ? "Sold out" : "Ready stock"}</span>
           <span class="pill">Halaman katalog ${product.page}</span>
         </div>
-        <p class="order-note">${orderText(product).replace(/\n/g, "<br>")}</p>
+        <p class="order-note">${escapeHtml(orderText(raw)).replace(/\n/g, "<br>")}</p>
         <div class="dialog-actions">
-          <a class="primary-button" href="${whatsappUrl(product)}" target="_blank" rel="noreferrer">Order WhatsApp</a>
+          <a class="primary-button" href="${whatsappUrl(raw)}" target="_blank" rel="noreferrer">Order WhatsApp</a>
           <button class="secondary-button" type="button" data-add-cart="${product.id}" ${product.status === "sold-out" ? "disabled" : ""}>Tambah keranjang</button>
           <button class="secondary-button" type="button" data-copy="${product.id}">Salin detail</button>
         </div>
@@ -594,6 +623,17 @@
     if (event.key === "Escape" && dialog.open) closeProduct();
   });
 
-  renderStats();
-  render();
+  async function init() {
+    resultCount.textContent = "Memuat produk...";
+    try {
+      products = await loadProducts();
+    } catch (error) {
+      console.error(error);
+      showToast("Katalog gagal dimuat, coba muat ulang halaman");
+    }
+    renderStats();
+    render();
+  }
+
+  init();
 })();
