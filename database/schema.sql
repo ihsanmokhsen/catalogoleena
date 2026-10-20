@@ -55,9 +55,12 @@ CREATE TABLE IF NOT EXISTS orders (
     client_ip_hash CHAR(64) NOT NULL,
     expires_at DATETIME NOT NULL,
     paid_at DATETIME NULL,
+    tracking_number VARCHAR(60) NULL,
+    shipped_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_orders_status (status, created_at)
+    INDEX idx_orders_status (status, created_at),
+    INDEX idx_orders_expiry (status, expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Nama dan harga produk disalin saat order dibuat, supaya riwayat tidak berubah bila katalog diedit.
@@ -99,4 +102,12 @@ CREATE TABLE IF NOT EXISTS payment_notifications (
     payload MEDIUMTEXT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_payment_notifications_order (order_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(60) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    last_login_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
