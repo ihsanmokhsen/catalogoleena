@@ -30,6 +30,22 @@
     });
   });
 
+  // Pilih kategori: kategori lama mengisi halaman katalog otomatis, "+ Kategori baru" memunculkan kolom nama.
+  const seriesSelect = document.getElementById("seriesSelect");
+  const seriesNewField = document.getElementById("seriesNewField");
+  const catalogPage = document.getElementById("catalogPage");
+  if (seriesSelect && seriesNewField) {
+    const newInput = seriesNewField.querySelector("input");
+    seriesSelect.addEventListener("change", () => {
+      const option = seriesSelect.selectedOptions[0];
+      const isNew = seriesSelect.value === "__new__";
+      seriesNewField.hidden = !isNew;
+      newInput.required = isNew;
+      if (isNew) newInput.focus();
+      if (option && option.dataset.page && catalogPage) catalogPage.value = option.dataset.page;
+    });
+  }
+
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-confirm]");
     if (button && !window.confirm(button.dataset.confirm)) event.preventDefault();

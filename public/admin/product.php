@@ -31,6 +31,35 @@ $values = $product ?? [
 ];
 $error = null;
 
+// Kategori (seri) yang sudah ada, urut seperti di katalog, beserta halaman katalognya.
+$categories = array_column(db()->query(
+    'SELECT series, MIN(catalog_page) page FROM products GROUP BY series ORDER BY MIN(catalog_page), MIN(sort_order)'
+)->fetchAll(), 'page', 'series');
+const NEW_CATEGORY = '__new__';
+
+// Pilihan kategori dari form. Kategori baru yang namanya sama dengan kategori lama
+// (beda huruf besar/kecil atau spasi) otomatis memakai kategori lama supaya tidak dobel.
+function chosen_category(array $categories): string
+{
+    $choice = (string) ($_POST['series'] ?? '');
+    if ($choice !== NEW_CATEGORY) {
+        if (!array_key_exists($choice, $categories)) {
+            throw new InvalidArgumentException('Pilih kategori dari daftar.');
+        }
+        return $choice;
+    }
+    $new = trim((string) preg_replace('/\s+/u', ' ', (string) ($_POST['series_new'] ?? '')));
+    if (mb_strlen($new) < 2 || mb_strlen($new) > 120 || preg_match('/\p{C}/u', $new)) {
+        throw new InvalidArgumentException('Nama kategori baru harus 2-120 karakter.');
+    }
+    foreach (array_keys($categories) as $existing) {
+        if (mb_strtolower($existing) === mb_strtolower($new)) {
+            return $existing;
+        }
+    }
+    return $new;
+}
+
 function warning_suffix(array $warnings): string
 {
     return $warnings
@@ -125,7 +154,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $values = array_merge($values, [
             'name' => trim((string) ($_POST['name'] ?? '')),
-            'series' => trim((string) ($_POST['series'] ?? '')),
+            'series' => (string) ($_POST['series'] ?? ''),
+            'series_new' => trim((string) ($_POST['series_new'] ?? '')),
             'price' => $_POST['price'] ?? '',
             'weight_gram' => $_POST['weight_gram'] ?? '',
             'stock' => $_POST['stock'] ?? '',
@@ -135,13 +165,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             $name = $values['name'];
-            $series = $values['series'];
             if (mb_strlen($name) < 2 || mb_strlen($name) > 120 || preg_match('/\p{C}/u', $name)) {
                 throw new InvalidArgumentException('Nama produk harus 2-120 karakter.');
             }
-            if (mb_strlen($series) < 2 || mb_strlen($series) > 120 || preg_match('/\p{C}/u', $series)) {
-                throw new InvalidArgumentException('Nama seri harus 2-120 karakter.');
-            }
+            $series = chosen_category($categories);
             $price = filter_var($values['price'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1000, 'max_range' => 100000000]]);
             $weight = filter_var($values['weight_gram'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 50000]]);
             $page = filter_var($values['catalog_page'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 999]]);
@@ -205,7 +232,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$seriesList = db()->query('SELECT DISTINCT series FROM products ORDER BY series')->fetchAll(PDO::FETCH_COLUMN);
 $gallery = $isNew ? [] : product_gallery($id);
 $photoHint = 'JPG, PNG, atau WebP, maksimal 8 MB per foto, sampai ' . PRODUCT_MAX_PHOTOS . ' foto. Pakai foto asli dari kamera (minimal 1080×1440 px), potret 3:4, cahaya terang, dan kamera diam supaya tidak blur.';
 
@@ -275,18 +301,29 @@ admin_header($isNew ? 'Tambah produk' : 'Edit produk', $admin);
 <?php endif; ?>
       <div class="fields">
         <label>Nama produk <input name="name" value="<?= h($values['name']) ?>" required maxlength="120" placeholder="Contoh: Layali Bloom"></label>
-        <label>Seri <input name="series" value="<?= h($values['series']) ?>" required maxlength="120" list="seriesList" placeholder="Pilih atau ketik seri baru"></label>
-        <datalist id="seriesList">
-<?php foreach ($seriesList as $series): ?>
-          <option value="<?= h($series) ?>">
+<?php $isNewCategory = $values['series'] === NEW_CATEGORY; ?>
+        <label>Kategori
+          <select name="series" id="seriesSelect" required>
+<?php if ($isNew): ?>
+            <option value="" <?= $values['series'] === '' ? 'selected' : '' ?> disabled>Pilih kategori</option>
+<?php endif; ?>
+<?php foreach ($categories as $category => $categoryPage): ?>
+            <option value="<?= h($category) ?>" data-page="<?= (int) $categoryPage ?>" <?= $values['series'] === $category ? 'selected' : '' ?>><?= h($category) ?></option>
 <?php endforeach; ?>
-        </datalist>
+            <option value="<?= NEW_CATEGORY ?>" <?= $isNewCategory ? 'selected' : '' ?>>+ Kategori baru…</option>
+          </select>
+        </label>
+        <label id="seriesNewField" <?= $isNewCategory ? '' : 'hidden' ?>>Nama kategori baru
+          <input name="series_new" value="<?= h($values['series_new'] ?? '') ?>" maxlength="120" placeholder="Contoh: Bella Square Series" <?= $isNewCategory ? 'required' : '' ?>>
+        </label>
         <label>Harga (Rp) <input type="number" name="price" value="<?= h($values['price']) ?>" min="1000" step="500" required></label>
         <label>Berat (gram) <input type="number" name="weight_gram" value="<?= h($values['weight_gram']) ?>" min="1" max="50000" required></label>
         <label>Stok <small>(0 = Sold out; otomatis berkurang saat pesanan dibayar)</small>
           <input type="number" name="stock" value="<?= h($values['stock']) ?>" min="0" max="100000" required>
         </label>
-        <label>Halaman katalog <input type="number" name="catalog_page" value="<?= h($values['catalog_page']) ?>" min="1" max="999" required></label>
+        <label>Halaman katalog <small>(otomatis mengikuti kategori; produk tampil berurutan per halaman)</small>
+          <input type="number" name="catalog_page" id="catalogPage" value="<?= h($values['catalog_page']) ?>" min="1" max="999" required>
+        </label>
         <label class="check"><input type="checkbox" name="is_active" <?= $values['is_active'] ? 'checked' : '' ?>> Tampilkan di katalog</label>
         <button class="primary" type="submit"><?= $isNew ? 'Simpan produk' : 'Simpan detail' ?></button>
       </div>

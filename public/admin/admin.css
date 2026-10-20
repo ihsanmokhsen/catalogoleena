@@ -204,3 +204,5 @@ h2.spaced { margin-top: 18px; }
 }
 .bar-col:first-child:hover::after { left: 0; transform: none; }
 .bar-col:last-child:hover::after { left: auto; right: 0; transform: none; }
+
+.fields label[hidden] { display: none; }
