@@ -30,6 +30,9 @@
   const dialog = document.querySelector("#productDialog");
   const dialogContent = document.querySelector("#dialogContent");
   const closeDialog = document.querySelector("#closeDialog");
+  const imageViewer = document.querySelector("#imageViewer");
+  const imageViewerImg = document.querySelector("#imageViewerImg");
+  const closeImageViewer = document.querySelector("#closeImageViewer");
   const openCart = document.querySelector("#openCart");
   const cartCount = document.querySelector("#cartCount");
   const cartDialog = document.querySelector("#cartDialog");
@@ -140,8 +143,18 @@
       id: escapeHtml(product.id),
       name: escapeHtml(product.name),
       series: escapeHtml(product.series),
-      image: escapeHtml(product.image)
+      image: escapeHtml(product.image),
+      imageSmall: escapeHtml(product.imageSmall || product.image)
     };
+  }
+
+  // Foto hasil upload punya versi kartu (720px) dan HD (1440px); browser memilih sesuai kepadatan layar HP.
+  function productImageTag(product, className = "") {
+    const srcset = product.imageSmall !== product.image
+      ? ` srcset="${product.imageSmall} 720w, ${product.image} 1440w" sizes="(max-width: 739px) 50vw, 25vw"`
+      : "";
+    const cls = className ? ` class="${className}"` : "";
+    return `<img${cls} src="${product.imageSmall}"${srcset} width="720" height="960" alt="${product.name} - ${product.series}" loading="lazy" decoding="async">`;
   }
 
   async function loadProducts() {
@@ -196,8 +209,8 @@
       const product = escapeProduct(raw);
       return `
         <article class="product-card ${isSoldOut ? "is-sold-out" : ""}">
-          <div class="product-media">
-            <img src="${product.image}" alt="${product.name} - ${product.series}" loading="lazy">
+          <div class="product-media" data-product="${product.id}" title="Lihat detail ${product.name}">
+            ${productImageTag(product)}
             <span class="price-badge">${shortPrice(product.price)}</span>
             <span class="status-badge">${isSoldOut ? "Sold out" : "Ready"}</span>
           </div>
@@ -700,19 +713,20 @@
   function openProduct(raw) {
     const product = escapeProduct(raw);
     dialogContent.innerHTML = `
-      <img class="dialog-image" src="${product.image}" alt="${product.name} - ${product.series}">
+      <button class="dialog-image-button" type="button" data-zoom="${product.image}" aria-label="Perbesar foto ${product.name}">
+        <img class="dialog-image" src="${product.image}" width="1440" height="1920" alt="${product.name} - ${product.series}" decoding="async">
+        <span class="zoom-hint">Ketuk untuk perbesar</span>
+      </button>
       <section class="dialog-details">
         <p class="eyebrow">${product.series}</p>
         <h2>${product.name}</h2>
         <div class="dialog-meta">
           <span class="pill">${formatPrice(product.price)}</span>
           <span class="pill">${product.status === "sold-out" ? "Sold out" : "Ready stock"}</span>
-          <span class="pill">Halaman katalog ${product.page}</span>
         </div>
-        <p class="order-note">${escapeHtml(orderText(raw)).replace(/\n/g, "<br>")}</p>
         <div class="dialog-actions">
-          <a class="primary-button" href="${whatsappUrl(raw)}" target="_blank" rel="noreferrer">Order WhatsApp</a>
-          <button class="secondary-button" type="button" data-add-cart="${product.id}" ${product.status === "sold-out" ? "disabled" : ""}>Tambah keranjang</button>
+          <button class="primary-button" type="button" data-add-cart="${product.id}" ${product.status === "sold-out" ? "disabled" : ""}>${product.status === "sold-out" ? "Sold out" : "Tambah keranjang"}</button>
+          <a class="secondary-button" href="${whatsappUrl(raw)}" target="_blank" rel="noreferrer">Tanya via WhatsApp</a>
           <button class="secondary-button" type="button" data-copy="${product.id}">Salin detail</button>
         </div>
       </section>
@@ -791,7 +805,30 @@
     if (product) openProduct(product);
   });
 
+  function openImageViewer(src, alt) {
+    imageViewerImg.src = src;
+    imageViewerImg.alt = alt;
+    if (typeof imageViewer.showModal === "function") imageViewer.showModal();
+    else imageViewer.setAttribute("open", "");
+  }
+
+  function closeImage() {
+    if (imageViewer.open && typeof imageViewer.close === "function") imageViewer.close();
+    else imageViewer.removeAttribute("open");
+  }
+
+  closeImageViewer.addEventListener("click", closeImage);
+  imageViewer.addEventListener("click", (event) => {
+    if (event.target === imageViewer) closeImage();
+  });
+
   dialog.addEventListener("click", (event) => {
+    const zoom = event.target.closest("[data-zoom]");
+    if (zoom) {
+      openImageViewer(zoom.dataset.zoom, zoom.querySelector("img").alt);
+      return;
+    }
+
     const addCart = event.target.closest("[data-add-cart]");
     if (addCart) {
       addToCart(addCart.dataset.addCart);

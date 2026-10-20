@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../../src/bootstrap.php';
+require __DIR__ . '/../../src/images.php';
 
 api_boot(['GET', 'HEAD']);
 
@@ -20,6 +21,7 @@ $products = array_map(fn (array $row) => [
     'weightGram' => (int) $row['weight_gram'],
     'status' => $row['status'],
     'image' => $row['image'],
+    'imageSmall' => product_image_small($row['image']),
     'page' => (int) $row['catalog_page'],
 ], $rows);
 

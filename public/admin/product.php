@@ -77,7 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $slug = "$base-$n";
                 }
 
-                $image = product_image_store($_FILES['photo'], $slug);
+                $upload = product_image_store($_FILES['photo'], $slug);
+                $image = $upload['path'];
                 try {
                     $pdo->prepare(
                         'INSERT INTO products (slug, series, name, price, weight_gram, status, image, catalog_page, sort_order, is_active)
@@ -89,9 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $id = (int) $pdo->lastInsertId();
                 error_log(sprintf('[oleena-admin] %s menambah produk #%d %s', $admin['username'], $id, $slug));
-                flash('Produk ditambahkan.');
+                flash('Produk ditambahkan.' . ($upload['warning'] ? ' Perhatian: ' . $upload['warning'] : ''));
             } else {
-                $newImage = $hasPhoto ? product_image_store($_FILES['photo'], $product['slug']) : null;
+                $upload = $hasPhoto ? product_image_store($_FILES['photo'], $product['slug']) : null;
+                $newImage = $upload['path'] ?? null;
                 try {
                     $pdo->prepare(
                         'UPDATE products SET series = ?, name = ?, price = ?, weight_gram = ?, status = ?, image = ?,
@@ -105,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     product_image_delete($product['image']);
                 }
                 error_log(sprintf('[oleena-admin] %s mengedit produk #%d', $admin['username'], $id));
-                flash('Produk diperbarui.');
+                flash('Produk diperbarui.' . (!empty($upload['warning']) ? ' Perhatian: ' . $upload['warning'] : ''));
             }
             redirect('/admin/products.php#p' . $id);
         } catch (InvalidArgumentException $e) {
@@ -130,7 +132,7 @@ admin_header($isNew ? 'Tambah produk' : 'Edit produk', $admin);
         <label>Foto produk <?= $isNew ? '' : '<small>(kosongkan bila tidak diganti)</small>' ?>
           <input id="photoInput" type="file" name="photo" accept="image/jpeg,image/png,image/webp" <?= $isNew ? 'required' : '' ?>>
         </label>
-        <p class="hint">JPG, PNG, atau WebP, maksimal 8 MB. Foto otomatis diperkecil, dan rasio potret 3:4 paling pas di katalog.</p>
+        <p class="hint">JPG, PNG, atau WebP, maksimal 8 MB. Pakai foto asli dari kamera (minimal 1080×1440 px), potret 3:4, cahaya terang, dan kamera diam supaya tidak blur.</p>
       </div>
       <div class="fields">
         <label>Nama produk <input name="name" value="<?= h($values['name']) ?>" required maxlength="120" placeholder="Contoh: Layali Bloom"></label>

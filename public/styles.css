@@ -1233,3 +1233,141 @@ button.primary-button {
 .primary-button[aria-disabled="true"] {
   opacity: 0.55;
 }
+
+
+/* ---------- Kenyamanan di HP ---------- */
+
+.brand-lockup h1,
+.brand-lockup .eyebrow {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.cta-icon {
+  display: none;
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 479px) {
+  .topbar {
+    padding: 10px 16px;
+  }
+
+  .contact-actions a.cta-link {
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+
+  .contact-actions .cta-icon {
+    display: block;
+  }
+
+  .contact-actions a.cta-link .cta-text {
+    display: none;
+  }
+
+  .cart-button {
+    min-height: 40px;
+  }
+}
+
+.product-media[data-product] {
+  cursor: pointer;
+}
+
+.dialog-image-button {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: var(--soft);
+  cursor: zoom-in;
+}
+
+.dialog-image-button .dialog-image {
+  display: block;
+  aspect-ratio: 3 / 4;
+  height: auto;
+  max-height: 64vh;
+  object-fit: contain;
+}
+
+.zoom-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.72);
+  color: #fff;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+@media (max-width: 739px) {
+  .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    margin: 0 -18px -18px;
+    padding: 12px 18px calc(12px + var(--bottom-safe));
+    border-top: 1px solid var(--line);
+    background: #fff;
+  }
+
+  .dialog-actions .primary-button,
+  .dialog-actions .secondary-button {
+    flex: 1 1 120px;
+    min-height: 46px;
+    white-space: nowrap;
+  }
+
+  .dialog-actions .primary-button {
+    flex-basis: 100%;
+  }
+}
+
+@media (min-width: 740px) {
+  .dialog-image-button {
+    height: 100%;
+  }
+
+  .dialog-image-button .dialog-image {
+    height: 100%;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+}
+
+.image-viewer {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: #000;
+}
+
+.image-viewer::backdrop {
+  background: #000;
+}
+
+.image-viewer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  touch-action: pinch-zoom;
+}
+
+.image-viewer .close-button {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: 12px;
+  z-index: 1;
+}
