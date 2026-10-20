@@ -3,6 +3,10 @@
 // config.php tidak ikut ke git dan berada di luar webroot, jadi aman untuk menyimpan kredensial.
 
 return [
+    'app' => [
+        // URL publik situs, dipakai untuk link kembali setelah pembayaran.
+        'url' => 'https://oleena.hilmimokhsen.my.id',
+    ],
     'db' => [
         'host' => '127.0.0.1',
         'port' => 3306,
@@ -19,5 +23,11 @@ return [
         'couriers' => 'jne,jnt,sicepat,anteraja,pos,ninja,lion,sap,idexpress',
         // Tambahan berat kemasan per paket (gram).
         'packaging_weight_gram' => 100,
+    ],
+    'midtrans' => [
+        // Dashboard Midtrans > Settings > Access Keys. Server key bersifat RAHASIA.
+        'server_key' => '',
+        // false = Sandbox (uji coba), true = Production (uang sungguhan).
+        'is_production' => false,
     ],
 ];

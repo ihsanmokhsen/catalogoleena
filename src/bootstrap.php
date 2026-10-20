@@ -30,6 +30,8 @@ function db(): PDO
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
+        // Samakan zona waktu MySQL dengan PHP (WITA, tanpa DST) agar NOW() dan strtotime() konsisten.
+        $pdo->exec("SET time_zone = '+08:00'");
     }
     return $pdo;
 }

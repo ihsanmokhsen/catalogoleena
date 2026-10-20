@@ -441,6 +441,14 @@
     return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
   }
 
+  function getOrderToken(code) {
+    try {
+      return JSON.parse(localStorage.getItem("oleena:orders") || "{}")[code] || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   function saveOrderToken(code, token) {
     try {
       const saved = JSON.parse(localStorage.getItem("oleena:orders") || "{}");
@@ -476,10 +484,74 @@
         <div class="is-total"><dt>Total bayar</dt><dd>${formatPrice(order.total)}</dd></div>
       </dl>
       <div class="order-actions">
-        <a class="secondary-button" href="${orderWhatsappUrl(order)}" target="_blank" rel="noreferrer">Konfirmasi via WhatsApp</a>
+        ${order.status === "pending_payment" ? `
+          <button class="primary-button" type="button" data-order-pay>Bayar sekarang</button>
+          <button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>
+        ` : ""}
+        <a class="secondary-button" href="${orderWhatsappUrl(order)}" target="_blank" rel="noreferrer">Hubungi via WhatsApp</a>
         <button class="secondary-button" type="button" data-order-close>Belanja lagi</button>
       </div>
     `;
+  }
+
+  async function fetchOrderStatus(code, token) {
+    const response = await fetch(`api/order-status.php?code=${encodeURIComponent(code)}&token=${encodeURIComponent(token)}`, {
+      headers: { Accept: "application/json" }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return data.order;
+  }
+
+  async function refreshOrder() {
+    const token = state.order && getOrderToken(state.order.code);
+    if (!token) return;
+    try {
+      state.order = await fetchOrderStatus(state.order.code, token);
+      renderOrderPanel();
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
+  async function payOrder(button) {
+    const token = getOrderToken(state.order.code);
+    if (!token) {
+      showToast("Token pesanan tidak ditemukan di perangkat ini, hubungi kami via WhatsApp");
+      return;
+    }
+    button.disabled = true;
+    button.textContent = "Membuka pembayaran...";
+    try {
+      const data = await postJson("api/payment.php", { code: state.order.code, token });
+      window.location.href = data.redirectUrl;
+    } catch (error) {
+      showToast(error.message);
+      button.disabled = false;
+      button.textContent = "Bayar sekarang";
+    }
+  }
+
+  // Setelah kembali dari halaman Midtrans (?order=KODE), tampilkan status pesanan.
+  // Webhook bisa datang sedikit terlambat, jadi status dicek ulang beberapa kali.
+  async function resumeOrderFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("order");
+    if (!code) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    const token = getOrderToken(code);
+    if (!token) return;
+    try {
+      state.order = await fetchOrderStatus(code, token);
+    } catch (error) {
+      showToast(error.message);
+      return;
+    }
+    openCartDialog();
+    for (let attempt = 0; attempt < 5 && state.order && state.order.status === "pending_payment"; attempt++) {
+      await new Promise((resolve) => window.setTimeout(resolve, 3000));
+      await refreshOrder();
+    }
   }
 
   async function submitOrder() {
@@ -831,6 +903,15 @@
   });
 
   orderPanel.addEventListener("click", (event) => {
+    const pay = event.target.closest("[data-order-pay]");
+    if (pay) {
+      payOrder(pay);
+      return;
+    }
+    if (event.target.closest("[data-order-refresh]")) {
+      refreshOrder();
+      return;
+    }
     if (!event.target.closest("[data-order-close]")) return;
     state.order = null;
     cartDialog.close();
@@ -880,6 +961,7 @@
     }
     renderStats();
     render();
+    resumeOrderFromUrl();
   }
 
   init();

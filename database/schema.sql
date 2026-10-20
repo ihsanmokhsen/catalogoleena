@@ -73,3 +73,30 @@ CREATE TABLE IF NOT EXISTS order_items (
     CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
     CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payments (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    provider VARCHAR(20) NOT NULL DEFAULT 'midtrans',
+    snap_token VARCHAR(80) NOT NULL,
+    redirect_url VARCHAR(255) NOT NULL,
+    gross_amount INT UNSIGNED NOT NULL,
+    transaction_status VARCHAR(30) NULL,
+    payment_type VARCHAR(40) NULL,
+    transaction_id VARCHAR(80) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Semua notifikasi webhook dicatat apa adanya untuk audit.
+CREATE TABLE IF NOT EXISTS payment_notifications (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_code VARCHAR(64) NULL,
+    transaction_status VARCHAR(30) NULL,
+    signature_valid TINYINT(1) NOT NULL,
+    result VARCHAR(60) NOT NULL,
+    payload MEDIUMTEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_payment_notifications_order (order_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
