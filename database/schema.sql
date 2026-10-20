@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS products (
     name VARCHAR(120) NOT NULL,
     price INT UNSIGNED NOT NULL,
     weight_gram INT UNSIGNED NOT NULL DEFAULT 250,
+    stock INT UNSIGNED NOT NULL DEFAULT 0,
+    -- Diatur otomatis dari stok: 'sold-out' bila stock = 0.
     status ENUM('available', 'sold-out') NOT NULL DEFAULT 'available',
     image VARCHAR(255) NOT NULL,
     catalog_page SMALLINT UNSIGNED NOT NULL DEFAULT 1,
@@ -57,6 +59,8 @@ CREATE TABLE IF NOT EXISTS orders (
     paid_at DATETIME NULL,
     tracking_number VARCHAR(60) NULL,
     shipped_at DATETIME NULL,
+    -- 1 bila saat dibayar stok sudah tidak cukup (dua pembeli membayar barang terakhir). Perlu refund/konfirmasi.
+    stock_short TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_orders_status (status, created_at),

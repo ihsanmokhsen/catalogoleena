@@ -18,7 +18,8 @@ PHP_CLI_SERVER_WORKERS=4 php -d post_max_size=64M -d upload_max_filesize=8M -S l
 - [ ] Coba juga hasil "Kedaluwarsa" dan "Batalkan" di halaman simulasi.
 - [ ] Login ke http://localhost:8000/admin/ (akun lokal ada di komentar atas `database/seed_demo.php`).
 - [ ] Di **Admin > Produk**, isi **berat asli** setiap produk dalam gram. Sekarang semua masih 250 g, padahal berat menentukan ongkir.
-- [ ] Di **Admin > Produk**, cek harga dan status Ready/Sold out.
+- [ ] Di **Admin > Produk**, isi **stok asli** setiap produk. Sekarang stok contoh masih 10. Stok berkurang otomatis saat pesanan dibayar, dan stok 0 berarti Sold out.
+- [ ] Cek harga setiap produk.
 - [ ] Coba alur admin: Dibayar → Dikemas → Dikirim (isi resi) → Selesai.
 - [ ] Tentukan **kecamatan lokasi toko di Kupang**, untuk titik asal ongkir.
 - [ ] Catat hal yang ingin diubah dari tampilan atau alur.
@@ -73,13 +74,12 @@ Ikuti [deploy/README.md](deploy/README.md), bagian "Checklist pengaturan".
 - [ ] Buka `/admin/` dan proses pesanan berstatus **Dibayar**: kemas, lalu ubah ke **Dikemas**.
 - [ ] Setelah paket diserahkan ke kurir, isi **nomor resi** dan ubah ke **Dikirim**.
 - [ ] Tandai **Selesai** setelah paket diterima.
-- [ ] Ubah produk yang habis menjadi **Sold out**.
+- [ ] Saat barang baru datang, tambah **stok** di Admin > Produk. Produk dengan stok 0 otomatis tampil Sold out.
+- [ ] Bila pesanan bertanda **Stok kurang** (dua pembeli membayar barang terakhir bersamaan), hubungi pembeli untuk menawarkan pengganti atau refund.
+- [ ] Awal bulan: buka **Admin > Laporan** dan unduh CSV bulan lalu untuk pembukuan.
 - [ ] Refund dilakukan dari dashboard Midtrans. Membatalkan pesanan di admin tidak otomatis mengembalikan dana.
 
 ## 8. Ide pengembangan berikutnya (opsional)
 
-- Stok berdasarkan jumlah, yang otomatis berkurang saat pesanan dibayar.
 - Notifikasi otomatis ke WhatsApp atau email admin saat ada pesanan dibayar.
-- Halaman "Lacak pesanan" untuk pembeli, berisi status dan nomor resi.
 - Membuat order pengiriman langsung dari admin lewat Biteship, sehingga resi otomatis.
-- Laporan penjualan bulanan di admin.

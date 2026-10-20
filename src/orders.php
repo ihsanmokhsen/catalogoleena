@@ -63,6 +63,10 @@ function order_public(int $orderId): array
         'shippingCost' => (int) $order['shipping_cost'],
         'total' => (int) $order['total'],
         'expiresAt' => $order['expires_at'],
+        'createdAt' => $order['created_at'],
+        'paidAt' => $order['paid_at'],
+        'shippedAt' => $order['shipped_at'],
+        'trackingNumber' => $order['tracking_number'],
         'items' => array_map(fn (array $item) => [
             'name' => $item['product_name'],
             'series' => $item['product_series'],

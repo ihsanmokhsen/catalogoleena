@@ -26,7 +26,7 @@ $isNew = $product === null;
 $self = $isNew ? '/admin/product.php' : '/admin/product.php?id=' . $id;
 
 $values = $product ?? [
-    'name' => '', 'series' => '', 'price' => '', 'weight_gram' => 250, 'status' => 'available', 'is_active' => 1,
+    'name' => '', 'series' => '', 'price' => '', 'weight_gram' => 250, 'stock' => '', 'is_active' => 1,
     'catalog_page' => (int) db()->query('SELECT COALESCE(MAX(catalog_page), 1) FROM products')->fetchColumn(),
 ];
 $error = null;
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'series' => trim((string) ($_POST['series'] ?? '')),
             'price' => $_POST['price'] ?? '',
             'weight_gram' => $_POST['weight_gram'] ?? '',
-            'status' => ($_POST['status'] ?? '') === 'sold-out' ? 'sold-out' : 'available',
+            'stock' => $_POST['stock'] ?? '',
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
             'catalog_page' => $_POST['catalog_page'] ?? 1,
         ]);
@@ -145,9 +145,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $price = filter_var($values['price'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1000, 'max_range' => 100000000]]);
             $weight = filter_var($values['weight_gram'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 50000]]);
             $page = filter_var($values['catalog_page'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 999]]);
-            if ($price === false || $weight === false || $page === false) {
-                throw new InvalidArgumentException('Harga (min Rp1.000), berat (1-50.000 g), atau halaman katalog tidak valid.');
+            $stock = filter_var($values['stock'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 100000]]);
+            if ($price === false || $weight === false || $page === false || $stock === false) {
+                throw new InvalidArgumentException('Harga (min Rp1.000), berat (1-50.000 g), stok (0-100.000), atau halaman katalog tidak valid.');
             }
+            $status = $stock > 0 ? 'available' : 'sold-out';
 
             $pdo = db();
             if ($isNew) {
@@ -171,9 +173,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $pdo->beginTransaction();
                     $pdo->prepare(
-                        'INSERT INTO products (slug, series, name, price, weight_gram, status, image, catalog_page, sort_order, is_active)
-                         SELECT ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM products'
-                    )->execute([$slug, $series, $name, $price, $weight, $values['status'], $stored['paths'][0], $page, $values['is_active']]);
+                        'INSERT INTO products (slug, series, name, price, weight_gram, stock, status, image, catalog_page, sort_order, is_active)
+                         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM products'
+                    )->execute([$slug, $series, $name, $price, $weight, $stock, $status, $stored['paths'][0], $page, $values['is_active']]);
                     $id = (int) $pdo->lastInsertId();
                     $insert = $pdo->prepare('INSERT INTO product_images (product_id, path, sort_order) VALUES (?, ?, ?)');
                     foreach ($stored['paths'] as $order => $path) {
@@ -191,8 +193,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('Produk ditambahkan dengan ' . count($stored['paths']) . ' foto.' . warning_suffix($stored['warnings']));
             } else {
                 $pdo->prepare(
-                    'UPDATE products SET series = ?, name = ?, price = ?, weight_gram = ?, status = ?, catalog_page = ?, is_active = ? WHERE id = ?'
-                )->execute([$series, $name, $price, $weight, $values['status'], $page, $values['is_active'], $id]);
+                    'UPDATE products SET series = ?, name = ?, price = ?, weight_gram = ?, stock = ?, status = ?, catalog_page = ?, is_active = ? WHERE id = ?'
+                )->execute([$series, $name, $price, $weight, $stock, $status, $page, $values['is_active'], $id]);
                 error_log(sprintf('[oleena-admin] %s mengedit produk #%d', $admin['username'], $id));
                 flash('Produk diperbarui.');
             }
@@ -281,11 +283,8 @@ admin_header($isNew ? 'Tambah produk' : 'Edit produk', $admin);
         </datalist>
         <label>Harga (Rp) <input type="number" name="price" value="<?= h($values['price']) ?>" min="1000" step="500" required></label>
         <label>Berat (gram) <input type="number" name="weight_gram" value="<?= h($values['weight_gram']) ?>" min="1" max="50000" required></label>
-        <label>Status
-          <select name="status">
-            <option value="available" <?= $values['status'] === 'available' ? 'selected' : '' ?>>Ready</option>
-            <option value="sold-out" <?= $values['status'] === 'sold-out' ? 'selected' : '' ?>>Sold out</option>
-          </select>
+        <label>Stok <small>(0 = Sold out; otomatis berkurang saat pesanan dibayar)</small>
+          <input type="number" name="stock" value="<?= h($values['stock']) ?>" min="0" max="100000" required>
         </label>
         <label>Halaman katalog <input type="number" name="catalog_page" value="<?= h($values['catalog_page']) ?>" min="1" max="999" required></label>
         <label class="check"><input type="checkbox" name="is_active" <?= $values['is_active'] ? 'checked' : '' ?>> Tampilkan di katalog</label>

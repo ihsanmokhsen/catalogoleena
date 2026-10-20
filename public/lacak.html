@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#7b1734">
+    <meta name="robots" content="noindex">
+    <title>Lacak Pesanan - OLEENA</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <link rel="apple-touch-icon" href="assets/favicon.png">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="track-page">
+    <header class="topbar">
+      <a class="brand-lockup brand-link" href="./" aria-label="Kembali ke katalog OLEENA">
+        <div>
+          <p class="eyebrow">@oleena.goods</p>
+          <h1>OLEENA</h1>
+        </div>
+      </a>
+      <nav class="contact-actions" aria-label="Navigasi">
+        <a class="cta-link back-link" href="./">&larr; Katalog</a>
+      </nav>
+    </header>
+
+    <main class="track-shell">
+      <section class="track-card">
+        <p class="eyebrow">Lacak pesanan</p>
+        <h2>Cek status &amp; nomor resi</h2>
+        <form id="trackForm" class="track-form" novalidate>
+          <label>
+            <span>Kode pesanan</span>
+            <input id="trackCode" name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters"
+              placeholder="OLN-261020-ABC123" maxlength="17" required>
+          </label>
+          <label>
+            <span>Nomor WhatsApp saat memesan</span>
+            <input id="trackPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="08xxxxxxxxxx" maxlength="20" required>
+          </label>
+          <button id="trackSubmit" class="primary-button" type="submit">Lacak</button>
+          <p id="trackError" class="track-error" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <section id="trackResult" class="track-card" hidden aria-live="polite"></section>
+
+      <section id="deviceOrders" class="track-card" hidden>
+        <p class="eyebrow">Pesanan di perangkat ini</p>
+        <div id="deviceOrderList" class="device-orders"></div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="lacak.js"></script>
+  </body>
+</html>

@@ -26,7 +26,7 @@ if ($search !== '') {
 $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
 $stmt = db()->prepare(
-    "SELECT order_code, status, customer_name, destination_area_name, courier_label, total, created_at
+    "SELECT order_code, status, stock_short, customer_name, destination_area_name, courier_label, total, created_at
      FROM orders $whereSql ORDER BY created_at DESC, id DESC LIMIT " . ($perPage + 1) . ' OFFSET ' . (($page - 1) * $perPage)
 );
 $stmt->execute($params);
@@ -57,7 +57,7 @@ admin_header('Pesanan', $admin);
 <?php foreach ($orders as $order): ?>
           <tr>
             <td><a href="/admin/order.php?code=<?= h(urlencode($order['order_code'])) ?>"><?= h($order['order_code']) ?></a></td>
-            <td><span class="badge badge-<?= h($order['status']) ?>"><?= h(ORDER_STATUS_LABELS[$order['status']]) ?></span></td>
+            <td><span class="badge badge-<?= h($order['status']) ?>"><?= h(ORDER_STATUS_LABELS[$order['status']]) ?></span><?= $order['stock_short'] ? ' <span class="badge badge-cancelled">Stok kurang</span>' : '' ?></td>
             <td><?= h($order['customer_name']) ?></td>
             <td><?= h($order['destination_area_name']) ?></td>
             <td><?= h($order['courier_label']) ?></td>

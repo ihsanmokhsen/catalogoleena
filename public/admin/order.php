@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/../../src/admin.php';
+require __DIR__ . '/../../src/stock.php';
 
 $admin = admin_require_login();
 
@@ -40,6 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect($self);
     }
 
+    // Pesanan yang sudah dibayar lalu dibatalkan: kembalikan stoknya.
+    // Pesanan bertanda stok kurang tidak dikembalikan otomatis karena stoknya memang tidak terambil penuh.
+    if ($next === 'cancelled' && in_array($current, ['paid', 'processing'], true) && !$order['stock_short']) {
+        stock_return_for_order((int) $order['id']);
+    }
+
     if ($next === 'shipped') {
         $pdo->prepare("UPDATE orders SET status = 'shipped', tracking_number = ?, shipped_at = NOW() WHERE id = ?")
             ->execute([$tracking, $order['id']]);
@@ -63,6 +70,9 @@ admin_header($order['order_code'], $admin);
 ?>
     <p><a href="/admin/">&larr; Semua pesanan</a></p>
     <h1><?= h($order['order_code']) ?> <span class="badge badge-<?= h($order['status']) ?>"><?= h(ORDER_STATUS_LABELS[$order['status']]) ?></span></h1>
+<?php if ($order['stock_short']): ?>
+    <p class="error"><strong>Stok kurang:</strong> saat pesanan ini dibayar, stok salah satu produk sudah habis (dibeli pembeli lain bersamaan). Hubungi pembeli untuk menawarkan pengganti, atau batalkan lalu refund dari Dashboard Midtrans. Stok tidak dikembalikan otomatis untuk pesanan ini.</p>
+<?php endif; ?>
     <div class="grid">
       <section class="card">
         <h2>Penerima</h2>

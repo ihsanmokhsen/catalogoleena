@@ -95,7 +95,7 @@ function shipping_package_from_cart(array $items): array
 
     $placeholders = implode(',', array_fill(0, count($quantities), '?'));
     $stmt = db()->prepare(
-        "SELECT id, slug, series, name, price, weight_gram FROM products
+        "SELECT id, slug, series, name, price, weight_gram, stock FROM products
          WHERE slug IN ($placeholders) AND is_active = 1 AND status = 'available'"
     );
     $stmt->execute(array_keys($quantities));
@@ -109,6 +109,9 @@ function shipping_package_from_cart(array $items): array
     $lines = [];
     foreach ($rows as $row) {
         $qty = $quantities[$row['slug']];
+        if ($qty > (int) $row['stock']) {
+            throw new InvalidArgumentException("Stok {$row['name']} tinggal {$row['stock']}. Kurangi jumlahnya di keranjang.");
+        }
         $weight += (int) $row['weight_gram'] * $qty;
         $value += (int) $row['price'] * $qty;
         $lines[] = [

@@ -29,7 +29,7 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 header('Cache-Control: no-store');
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self'; style-src-attr 'unsafe-inline'; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 
 set_exception_handler(function (Throwable $e): void {
     error_log('[oleena-admin] ' . $e);
@@ -130,6 +130,7 @@ function admin_header(string $title, ?array $admin = null): void
     <nav>
       <a href="/admin/">Pesanan</a>
       <a href="/admin/products.php">Produk</a>
+      <a href="/admin/reports.php">Laporan</a>
       <form method="post" action="/admin/logout.php"><?= csrf_field() ?><button type="submit">Keluar (<?= h($admin['username']) ?>)</button></form>
     </nav>
   </header>

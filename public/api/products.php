@@ -7,7 +7,7 @@ require __DIR__ . '/../../src/images.php';
 api_boot(['GET', 'HEAD']);
 
 $rows = db()->query(
-    'SELECT id, slug, series, name, price, weight_gram, status, image, catalog_page
+    'SELECT id, slug, series, name, price, weight_gram, stock, status, image, catalog_page
      FROM products
      WHERE is_active = 1
      ORDER BY catalog_page, sort_order, id'
@@ -26,6 +26,7 @@ $products = array_map(fn (array $row) => [
     'price' => (int) $row['price'],
     'weightGram' => (int) $row['weight_gram'],
     'status' => $row['status'],
+    'stock' => (int) $row['stock'],
     'image' => $row['image'],
     'imageSmall' => product_image_small($row['image']),
     'images' => array_map(fn (string $path) => [

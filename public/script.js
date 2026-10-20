@@ -215,7 +215,7 @@
             ${productImageTag(product)}
             ${product.images.length > 1 ? `<span class="photo-count" aria-label="${product.images.length} foto">${product.images.length} foto</span>` : ""}
             <span class="price-badge">${shortPrice(product.price)}</span>
-            <span class="status-badge">${isSoldOut ? "Sold out" : "Ready"}</span>
+            <span class="status-badge${!isSoldOut && raw.stock <= lowStockThreshold ? " is-low" : ""}">${stockLabel(raw)}</span>
           </div>
           <div class="product-body">
             <div class="product-title-row">
@@ -412,6 +412,13 @@
     refreshRates();
   }
 
+  const lowStockThreshold = 3;
+
+  function stockLabel(product) {
+    if (product.status === "sold-out") return "Sold out";
+    return product.stock <= lowStockThreshold ? `Sisa ${product.stock}` : "Ready";
+  }
+
   function cartButtonLabel(product) {
     if (product.status === "sold-out") return "Sold out";
     const qty = state.cart.get(product.id) || 0;
@@ -505,6 +512,7 @@
           <button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>
         ` : ""}
         <a class="secondary-button" href="${orderWhatsappUrl(order)}" target="_blank" rel="noreferrer">Hubungi via WhatsApp</a>
+        <a class="secondary-button" href="lacak.html?kode=${encodeURIComponent(order.code)}">Lacak pesanan</a>
         <button class="secondary-button" type="button" data-order-close>Belanja lagi</button>
       </div>
     `;
@@ -662,6 +670,10 @@
       showToast("Produk ini sedang sold out");
       return;
     }
+    if ((state.cart.get(productId) || 0) >= product.stock) {
+      showToast(`Stok ${product.name} tinggal ${product.stock}, semuanya sudah di keranjang`);
+      return;
+    }
     state.cart.set(productId, (state.cart.get(productId) || 0) + 1);
     saveCart();
     syncProductCartButton(productId);
@@ -679,6 +691,11 @@
 
   function updateCartQty(productId, delta) {
     const current = state.cart.get(productId) || 0;
+    const product = products.find((item) => item.id === productId);
+    if (delta > 0 && product && current >= product.stock) {
+      showToast(`Stok ${product.name} tinggal ${product.stock}`);
+      return;
+    }
     const next = current + delta;
     if (next <= 0) state.cart.delete(productId);
     else state.cart.set(productId, next);
@@ -836,7 +853,7 @@
         <h2>${product.name}</h2>
         <div class="dialog-meta">
           <span class="pill">${formatPrice(product.price)}</span>
-          <span class="pill">${product.status === "sold-out" ? "Sold out" : "Ready stock"}</span>
+          <span class="pill">${product.status === "sold-out" ? "Sold out" : raw.stock <= lowStockThreshold ? `Stok tinggal ${raw.stock}` : "Ready stock"}</span>
         </div>
         <div class="dialog-actions">
           <button class="primary-button" type="button" data-add-cart="${product.id}" ${product.status === "sold-out" ? "disabled" : ""}>${product.status === "sold-out" ? "Sold out" : "Tambah keranjang"}</button>
@@ -1091,6 +1108,8 @@
 
     const href = link.getAttribute("href");
     if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+    // Link ke halaman situs sendiri (misalnya Lacak pesanan) langsung dibuka tanpa overlay.
+    if (link.origin === window.location.origin) return;
 
     event.preventDefault();
     linkLoading = true;

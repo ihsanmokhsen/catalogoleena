@@ -5,6 +5,7 @@ declare(strict_types=1);
 // Status "paid" hanya diberikan oleh webhook yang tanda tangannya valid, lalu dikonfirmasi ulang ke Get Status API.
 
 require_once __DIR__ . '/orders.php';
+require_once __DIR__ . '/stock.php';
 
 final class PaymentException extends RuntimeException
 {
@@ -89,6 +90,12 @@ function payment_start(array $order): string
 {
     if ($order['status'] !== 'pending_payment' || strtotime($order['expires_at']) <= time()) {
         throw new InvalidArgumentException('Pesanan ini tidak bisa dibayar lagi.');
+    }
+
+    // Barang bisa habis dibeli orang lain sejak pesanan dibuat; jangan sampai pembeli membayar barang kosong.
+    $shortages = stock_shortages_for_order((int) $order['id']);
+    if ($shortages) {
+        throw new InvalidArgumentException('Maaf, stok ' . implode(', ', $shortages) . ' sudah habis. Silakan buat pesanan baru atau hubungi kami.');
     }
 
     $existing = payment_find((int) $order['id']);
@@ -202,8 +209,10 @@ function payment_handle_notification(array $payload): string
             $isFailed = in_array($transactionStatus, ['deny', 'cancel', 'expire', 'failure'], true);
 
             if ($isPaid && in_array($order['status'], ['pending_payment', 'expired', 'cancelled'], true)) {
-                $pdo->prepare("UPDATE orders SET status = 'paid', paid_at = NOW() WHERE id = ?")->execute([$order['id']]);
-                $result = 'paid';
+                $enough = stock_take_for_order((int) $order['id']);
+                $pdo->prepare("UPDATE orders SET status = 'paid', paid_at = NOW(), stock_short = ? WHERE id = ?")
+                    ->execute([$enough ? 0 : 1, $order['id']]);
+                $result = $enough ? 'paid' : 'paid_stock_short';
             } elseif ($isFailed && $order['status'] === 'pending_payment') {
                 $newStatus = $transactionStatus === 'expire' ? 'expired' : 'cancelled';
                 $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$newStatus, $order['id']]);

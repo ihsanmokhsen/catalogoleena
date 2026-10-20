@@ -82,7 +82,7 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
 
 ### E. Data produk
 
-14. Login ke `https://oleena.hilmimokhsen.my.id/admin/` > **Produk**, lalu isi **berat asli** tiap produk (default 250 g). Berat ini menentukan ongkir.
+14. Login ke `https://oleena.hilmimokhsen.my.id/admin/` > **Produk**, lalu isi **berat asli** (default 250 g, menentukan ongkir) dan **stok asli** tiap produk (seeder mengisi 10 untuk produk Ready).
 
 ### F. Uji coba (mode Sandbox)
 
