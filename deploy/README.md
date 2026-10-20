@@ -109,6 +109,23 @@ mysql -u oleena -p oleena < database/schema.sql   # aman diulang, tabel yang ada
 
 ## Development lokal
 
-```bash
-php -S localhost:8000 -t public
-```
+Lokal memakai MySQL Homebrew dan server tiruan Biteship/Midtrans (`dev/mock-server.php`), jadi semua alur bisa dicoba tanpa akun asli.
+
+1. Nyalakan MySQL: `brew services start mysql`
+2. Buat database `oleena` dan user `oleena`, lalu buat `config/config.php` dari contoh dengan:
+   - `app.url` = `http://localhost:8000` dan `app.env` = `'local'`
+   - `shipping.biteship_key` = `biteship_test.mock`, `shipping.base_url` = `http://localhost:8001`
+   - `midtrans.server_key` = `SB-Mid-server-mock`, ditambah `snap_url` = `http://localhost:8001/snap/v1/transactions` dan `api_url` = `http://localhost:8001`
+3. Isi database:
+   ```bash
+   mysql -uroot oleena < database/schema.sql
+   php database/seed_products.php
+   php database/seed_demo.php
+   ```
+   Seeder demo membuat akun admin lokal (lihat komentar di `database/seed_demo.php`) dan 14 pesanan contoh di semua status.
+4. Jalankan dua server (atau lewat `.claude/launch.json`):
+   ```bash
+   PHP_CLI_SERVER_WORKERS=4 php -S localhost:8001 dev/mock-server.php
+   PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000 -t public
+   ```
+5. Buka http://localhost:8000. Area yang tersedia di server tiruan antara lain Kupang, Jakarta, Bandung, Surabaya, Kuta, Makassar, Medan, dan Jayapura. Tombol "Bayar sekarang" membuka halaman simulasi pembayaran.

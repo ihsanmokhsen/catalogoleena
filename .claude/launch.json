@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "oleena-mock",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "localhost:8001", "dev/mock-server.php"],
+      "env": { "PHP_CLI_SERVER_WORKERS": "4" },
+      "port": 8001
+    },
+    {
+      "name": "oleena",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "localhost:8000", "-t", "public"],
+      "env": { "PHP_CLI_SERVER_WORKERS": "4" },
+      "port": 8000
+    }
+  ]
+}
