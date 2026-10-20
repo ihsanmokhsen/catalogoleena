@@ -1843,3 +1843,90 @@ button.gallery-slide {
   width: auto;
   padding: 0 12px;
 }
+
+
+/* ---------- Pembayaran QR / transfer ---------- */
+
+.pay-box {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--soft);
+  padding: 14px;
+  text-align: center;
+}
+
+.pay-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pay-amount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.pay-amount strong {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-amount .secondary-button,
+.pay-bank .secondary-button {
+  min-height: 36px;
+}
+
+.pay-hint,
+.pay-note,
+.pay-deadline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.pay-note {
+  white-space: pre-line;
+  color: var(--ink);
+}
+
+.pay-qr {
+  justify-self: center;
+  width: min(280px, 100%);
+  height: auto;
+  border: 8px solid #fff;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.pay-bank {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.pay-bank span,
+.pay-bank small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.pay-bank strong {
+  display: block;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}

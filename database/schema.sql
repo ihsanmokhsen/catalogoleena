@@ -53,7 +53,13 @@ CREATE TABLE IF NOT EXISTS orders (
     weight_gram INT UNSIGNED NOT NULL,
     subtotal INT UNSIGNED NOT NULL,
     shipping_cost INT UNSIGNED NOT NULL,
+    -- Kode unik 1-999 rupiah (pembayaran manual) supaya transfer mudah dicocokkan di mutasi rekening.
+    unique_code SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    -- total = subtotal + shipping_cost + unique_code
     total INT UNSIGNED NOT NULL,
+    payment_method ENUM('manual', 'midtrans') NOT NULL DEFAULT 'manual',
+    -- Admin yang menandai pesanan sudah dibayar (pembayaran manual).
+    paid_confirmed_by VARCHAR(60) NULL,
     client_ip_hash CHAR(64) NOT NULL,
     expires_at DATETIME NOT NULL,
     paid_at DATETIME NULL,
@@ -127,4 +133,11 @@ CREATE TABLE IF NOT EXISTS product_images (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_product_images_order (product_id, sort_order),
     CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Pengaturan toko yang bisa diubah dari Admin > Pengaturan (nomor WhatsApp admin, QR pembayaran, rekening, mode bayar).
+CREATE TABLE IF NOT EXISTS settings (
+    name VARCHAR(60) NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

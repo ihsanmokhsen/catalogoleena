@@ -206,3 +206,17 @@ h2.spaced { margin-top: 18px; }
 .bar-col:last-child:hover::after { left: auto; right: 0; transform: none; }
 
 .fields label[hidden] { display: none; }
+
+/* ---------- Pengaturan ---------- */
+.settings-form { display: grid; gap: 14px; max-width: 720px; }
+.settings-form label { display: grid; gap: 4px; }
+.settings-form label.check { display: flex; align-items: flex-start; gap: 8px; }
+.settings-form label.check input { margin-top: 3px; }
+.settings-form fieldset { display: grid; gap: 8px; margin: 0; border: 1px solid var(--line); border-radius: 6px; padding: 12px; }
+.settings-form legend { padding: 0 4px; font-weight: 600; }
+.settings-form textarea { font: inherit; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; }
+.qr-field { display: grid; gap: 8px; }
+.qr-field > span { font-weight: 600; }
+.qr-field img { width: 220px; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; background: #fff; image-rendering: pixelated; }
+.qr-field input[type="file"] { padding: 6px; min-height: auto; }
+.mark-paid { display: grid; gap: 8px; border: 1px solid #b7e1c4; background: #f0faf3; border-radius: 6px; padding: 12px; }

@@ -88,6 +88,9 @@ function payment_find(int $orderId): ?array
 // Buat (atau pakai ulang) transaksi Snap untuk pesanan, lalu kembalikan URL halaman bayar Midtrans.
 function payment_start(array $order): string
 {
+    if ($order['payment_method'] !== 'midtrans') {
+        throw new InvalidArgumentException('Pesanan ini dibayar lewat QR/transfer toko, lalu konfirmasi via WhatsApp.');
+    }
     if ($order['status'] !== 'pending_payment' || strtotime($order['expires_at']) <= time()) {
         throw new InvalidArgumentException('Pesanan ini tidak bisa dibayar lagi.');
     }

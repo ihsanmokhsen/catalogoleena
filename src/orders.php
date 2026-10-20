@@ -5,6 +5,7 @@ declare(strict_types=1);
 // dari browser hanya dipakai data pembeli, Area ID tujuan, kunci layanan kurir, dan {id, qty} produk.
 
 require_once __DIR__ . '/shipping.php';
+require_once __DIR__ . '/settings.php';
 
 const ORDER_PAYMENT_WINDOW_HOURS = 24;
 
@@ -30,6 +31,21 @@ function normalize_phone(mixed $value): string
         throw new InvalidArgumentException('Nomor WhatsApp tidak valid. Contoh: 081234567890.');
     }
     return '62' . $match[1];
+}
+
+// Kode unik 1-999 rupiah sehingga total tidak sama dengan pesanan lain yang sedang menunggu bayar.
+// Dengan begitu setiap transfer di mutasi rekening bisa langsung dicocokkan ke satu pesanan.
+function order_unique_code(int $baseTotal): int
+{
+    $taken = db()->prepare("SELECT 1 FROM orders WHERE status = 'pending_payment' AND total = ? LIMIT 1");
+    for ($attempt = 0; $attempt < 30; $attempt++) {
+        $code = random_int(1, 999);
+        $taken->execute([$baseTotal + $code]);
+        if (!$taken->fetchColumn()) {
+            return $code;
+        }
+    }
+    return random_int(1, 999);
 }
 
 function order_find_id(string $column, string $value): ?int
@@ -61,7 +77,11 @@ function order_public(int $orderId): array
         'weightGram' => (int) $order['weight_gram'],
         'subtotal' => (int) $order['subtotal'],
         'shippingCost' => (int) $order['shipping_cost'],
+        'uniqueCode' => (int) $order['unique_code'],
         'total' => (int) $order['total'],
+        'paymentMethod' => $order['payment_method'],
+        // Instruksi bayar (QR, rekening, WhatsApp admin) hanya untuk pesanan manual yang masih menunggu bayar.
+        'payment' => $order['payment_method'] === 'manual' && $order['status'] === 'pending_payment' ? manual_payment_info() : null,
         'expiresAt' => $order['expires_at'],
         'createdAt' => $order['created_at'],
         'paidAt' => $order['paid_at'],
@@ -134,7 +154,9 @@ function order_create(array $input): array
     [$courierCode, $serviceCode] = explode(':', $rateKey, 2);
 
     $subtotal = $package['value'];
-    $total = $subtotal + $rate['price'];
+    $method = payment_mode();
+    $uniqueCode = $method === 'manual' ? order_unique_code($subtotal + $rate['price']) : 0;
+    $total = $subtotal + $rate['price'] + $uniqueCode;
 
     $accessToken = bin2hex(random_bytes(32));
 
@@ -146,9 +168,9 @@ function order_create(array $input): array
             $pdo->prepare(
                 'INSERT INTO orders (order_code, idempotency_key, access_token_hash, customer_name, customer_phone, address, note,
                    destination_area_id, destination_area_name, courier_code, courier_service_code, courier_label,
-                   weight_gram, subtotal, shipping_cost, total, client_ip_hash, expires_at)
+                   weight_gram, subtotal, shipping_cost, unique_code, total, payment_method, client_ip_hash, expires_at)
                  VALUES (:code, :idem, :token_hash, :name, :phone, :address, :note, :area_id, :area_name, :courier, :service,
-                   :courier_label, :weight, :subtotal, :shipping, :total, :ip, NOW() + INTERVAL :hours HOUR)'
+                   :courier_label, :weight, :subtotal, :shipping, :unique, :total, :method, :ip, NOW() + INTERVAL :hours HOUR)'
             )->execute([
                 'code' => $code,
                 'idem' => $idempotencyKey,
@@ -165,7 +187,9 @@ function order_create(array $input): array
                 'weight' => $package['weight'],
                 'subtotal' => $subtotal,
                 'shipping' => $rate['price'],
+                'unique' => $uniqueCode,
                 'total' => $total,
+                'method' => $method,
                 'ip' => hash('sha256', client_ip()),
                 'hours' => ORDER_PAYMENT_WINDOW_HOURS,
             ]);

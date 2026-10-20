@@ -22,6 +22,7 @@ PHP_CLI_SERVER_WORKERS=4 php -d post_max_size=64M -d upload_max_filesize=8M -S l
 - [ ] Cek harga setiap produk.
 - [ ] Coba alur admin: Dibayar → Dikemas → Dikirim (isi resi) → Selesai.
 - [ ] Tentukan **kecamatan lokasi toko di Kupang**, untuk titik asal ongkir.
+- [ ] Di **Admin > Pengaturan**, isi nomor WhatsApp admin, upload **QR pembayaran** (QRIS/QR bank), dan isi rekening bank. Lalu coba checkout: QR, total dengan kode unik, dan tombol konfirmasi WhatsApp harus muncul.
 - [ ] Catat hal yang ingin diubah dari tampilan atau alur.
 
 ## 2. Bereskan Vercel
@@ -71,7 +72,8 @@ Ikuti [deploy/README.md](deploy/README.md), bagian "Checklist pengaturan".
 
 ## 7. Rutinitas harian setelah live
 
-- [ ] Buka `/admin/` dan proses pesanan berstatus **Dibayar**: kemas, lalu ubah ke **Dikemas**.
+- [ ] Saat pembeli mengirim bukti transfer di WhatsApp, cek **mutasi rekening/QRIS** (bukan screenshot saja): nominal harus sama persis termasuk 3 digit terakhir. Lalu buka pesanan di `/admin/` dan klik **Tandai sudah dibayar**.
+- [ ] Proses pesanan berstatus **Dibayar**: kemas, lalu ubah ke **Dikemas**.
 - [ ] Setelah paket diserahkan ke kurir, isi **nomor resi** dan ubah ke **Dikirim**.
 - [ ] Tandai **Selesai** setelah paket diterima.
 - [ ] Saat barang baru datang, tambah **stok** di Admin > Produk. Produk dengan stok 0 otomatis tampil Sold out.

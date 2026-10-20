@@ -17,7 +17,8 @@ const ORDER_STATUS_LABELS = [
     'expired' => 'Kedaluwarsa',
 ];
 
-// Perpindahan status yang boleh dilakukan admin. "paid" hanya boleh diberikan oleh webhook Midtrans.
+// Perpindahan status yang boleh dilakukan admin. "paid" diberikan oleh webhook Midtrans (mode Midtrans)
+// atau lewat tombol khusus "Tandai sudah dibayar" untuk pembayaran QR/transfer manual.
 const ORDER_TRANSITIONS = [
     'pending_payment' => ['cancelled'],
     'paid' => ['processing', 'cancelled'],
@@ -131,6 +132,7 @@ function admin_header(string $title, ?array $admin = null): void
       <a href="/admin/">Pesanan</a>
       <a href="/admin/products.php">Produk</a>
       <a href="/admin/reports.php">Laporan</a>
+      <a href="/admin/settings.php">Pengaturan</a>
       <form method="post" action="/admin/logout.php"><?= csrf_field() ?><button type="submit">Keluar (<?= h($admin['username']) ?>)</button></form>
     </nav>
   </header>

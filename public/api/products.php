@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../src/bootstrap.php';
 require __DIR__ . '/../../src/images.php';
+require __DIR__ . '/../../src/settings.php';
 
 api_boot(['GET', 'HEAD']);
 
@@ -36,4 +37,7 @@ $products = array_map(fn (array $row) => [
     'page' => (int) $row['catalog_page'],
 ], $rows);
 
-json_response(['products' => $products], 200, ['Cache-Control' => 'public, max-age=60']);
+json_response([
+    'products' => $products,
+    'shop' => ['whatsapp' => setting('admin_whatsapp'), 'paymentMode' => payment_mode()],
+], 200, ['Cache-Control' => 'public, max-age=60']);

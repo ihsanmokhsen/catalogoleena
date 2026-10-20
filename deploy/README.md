@@ -71,9 +71,15 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
     php bin/create-admin.php oleena
     ```
 
-### D. Webhook dan cron
+### D. Pembayaran, webhook, dan cron
 
-12. Midtrans Dashboard > Settings > Payment > **Notification URL**:
+12. Login ke `/admin/` > **Pengaturan**, lalu isi:
+    - **Nomor WhatsApp admin**, sebagai tujuan konfirmasi pembayaran dan tombol WhatsApp di katalog
+    - **Gambar QR pembayaran** (QRIS/QR bank asli dari aplikasi bank) dan/atau nama bank, nomor rekening, dan atas nama
+    - Cara pembayaran: **QR / transfer** (default). Pilih Midtrans hanya bila akun Midtrans sudah aktif.
+
+    Dengan mode QR / transfer, Midtrans tidak dipakai, sehingga langkah Midtrans di bagian A, F, dan G boleh dilewati.
+    Bila memakai Midtrans: Dashboard Midtrans > Settings > Payment > **Notification URL**:
     `https://oleena.hilmimokhsen.my.id/api/midtrans-notification.php`
 13. aaPanel > Cron > Add, tipe Shell Script, jalan **tiap 15 menit**:
     ```bash
@@ -106,13 +112,14 @@ mysql -u oleena -p oleena < database/schema.sql   # aman diulang, tabel yang ada
 
 ## Backup
 
-Foto produk hasil upload disimpan di `public/uploads/products/` dan **tidak ikut git**. Sertakan folder ini dan database `oleena` di backup aaPanel (Cron > Backup Site & Database).
+Foto produk hasil upload disimpan di `public/uploads/products/` dan QR pembayaran di `public/uploads/settings/`. Keduanya **tidak ikut git**. Sertakan folder ini dan database `oleena` di backup aaPanel (Cron > Backup Site & Database).
 
 ## Catatan keamanan
 
 - Kredensial (DB, Biteship, Midtrans) hanya ada di `config/config.php`, di luar webroot dan tidak ikut git.
 - Harga, berat, ongkir, dan total selalu dihitung ulang di server. Angka dari browser tidak dipakai.
-- Status **Dibayar** hanya diberikan oleh webhook Midtrans yang tanda tangannya valid, nominalnya cocok, dan sudah dikonfirmasi ulang ke Get Status API. Admin tidak bisa menandai pesanan dibayar secara manual.
+- Mode QR / transfer: status **Dibayar** diberikan admin lewat tombol "Tandai sudah dibayar" setelah dana terlihat di mutasi rekening/QRIS. Nama admin dan waktunya tercatat. Setiap pesanan punya kode unik 1-999 rupiah supaya transfer mudah dicocokkan.
+- Mode Midtrans: status **Dibayar** hanya diberikan oleh webhook Midtrans yang tanda tangannya valid, nominalnya cocok, dan sudah dikonfirmasi ulang ke Get Status API.
 - Semua notifikasi Midtrans dicatat di tabel `payment_notifications` untuk audit.
 - Endpoint publik dibatasi per IP (rate limit). Login admin dibatasi 5 percobaan per 15 menit.
 - Panel admin memakai CSRF token, cookie sesi `HttpOnly` + `SameSite=Strict` + `Secure`, dan otomatis logout setelah 2 jam tidak aktif.

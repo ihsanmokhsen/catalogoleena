@@ -71,6 +71,33 @@
       </li>`).join("")}</ol>`;
   }
 
+  // Instruksi bayar untuk pesanan QR/transfer yang belum dibayar.
+  function paymentBox(order) {
+    const pay = order.status === "pending_payment" ? order.payment : null;
+    if (!pay) return "";
+    const account = (pay.bankAccount || "").replace(/[^0-9]/g, "");
+    const message = [
+      `Halo Oleena, saya sudah membayar pesanan ${order.code}.`,
+      `Nama: ${order.customerName}`,
+      `Total dibayar: ${formatPrice(order.total)}`,
+      "Bukti transfer saya lampirkan. Terima kasih!"
+    ].join("\n");
+    return `
+      <div class="pay-box">
+        <p class="pay-label">Total yang harus dibayar</p>
+        <div class="pay-amount"><strong>${formatPrice(order.total)}</strong>
+          <button class="secondary-button" type="button" data-copy="${order.total}">Salin</button></div>
+        <p class="pay-hint">Bayar <b>tepat</b> sampai 3 digit terakhir (<b>${String(order.total % 1000).padStart(3, "0")}</b>) supaya cepat dicek.</p>
+        ${pay.qr ? `<img class="pay-qr" src="${escapeHtml(pay.qr)}" alt="QR pembayaran Oleena" width="280" height="280">
+          <a class="secondary-button" href="${escapeHtml(pay.qr)}" download="QR-Oleena-${escapeHtml(order.code)}.png">Simpan gambar QR</a>` : ""}
+        ${account ? `<div class="pay-bank"><div><span>${escapeHtml(pay.bankName || "Transfer bank")}</span><strong>${escapeHtml(pay.bankAccount)}</strong>${pay.bankHolder ? `<small>a.n. ${escapeHtml(pay.bankHolder)}</small>` : ""}</div>
+          <button class="secondary-button" type="button" data-copy="${account}">Salin</button></div>` : ""}
+        ${pay.note ? `<p class="pay-note">${escapeHtml(pay.note)}</p>` : ""}
+        <p class="pay-deadline">Bayar sebelum ${escapeHtml(formatDate(order.expiresAt))}.</p>
+        <a class="primary-button" href="https://wa.me/${escapeHtml(pay.whatsapp)}?text=${encodeURIComponent(message)}" target="_blank" rel="noreferrer">Sudah bayar? Konfirmasi via WhatsApp</a>
+      </div>`;
+  }
+
   function renderOrder(order) {
     const resi = order.trackingNumber ? `
       <div class="track-resi">
@@ -82,6 +109,7 @@
       <h2>${escapeHtml(order.code)}</h2>
       <p class="order-status">${escapeHtml(statusLabels[order.status] || order.status)}</p>
       ${resi}
+      ${paymentBox(order)}
       ${timeline(order)}
       <ul class="order-lines">${order.items.map((item) => `
         <li><span>${escapeHtml(item.name)} - ${escapeHtml(item.series)} x${item.qty}</span><strong>${formatPrice(item.lineTotal)}</strong></li>`).join("")}
@@ -92,7 +120,7 @@
         <div><dt>Ongkir</dt><dd>${formatPrice(order.shippingCost)}</dd></div>
         <div class="is-total"><dt>Total</dt><dd>${formatPrice(order.total)}</dd></div>
       </dl>
-      ${order.status === "pending_payment" && savedTokens()[order.code] ? `<a class="primary-button" href="./?order=${encodeURIComponent(order.code)}">Lanjutkan pembayaran</a>` : ""}
+      ${order.status === "pending_payment" && order.paymentMethod === "midtrans" && savedTokens()[order.code] ? `<a class="primary-button" href="./?order=${encodeURIComponent(order.code)}">Lanjutkan pembayaran</a>` : ""}
     `;
     result.hidden = false;
     result.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -134,7 +162,7 @@
     if (copy) {
       try {
         await navigator.clipboard.writeText(copy.dataset.copy);
-        showToast("Nomor resi disalin");
+        showToast("Disalin");
       } catch (error) {
         showToast(copy.dataset.copy);
       }

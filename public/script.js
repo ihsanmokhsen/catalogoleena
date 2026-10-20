@@ -59,7 +59,8 @@
   const pageLoaderOverlay = document.querySelector("#pageLoaderOverlay");
   const toast = document.querySelector("#toast");
 
-  const whatsappNumber = "6281236773427";
+  // Diperbarui dari Admin > Pengaturan saat katalog dimuat.
+  let whatsappNumber = "6281236773427";
   let linkLoading = false;
   const formatter = new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -163,6 +164,13 @@
     const response = await fetch("api/products.php", { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
+    if (data.shop && /^62\d{8,13}$/.test(data.shop.whatsapp || "")) {
+      whatsappNumber = data.shop.whatsapp;
+      // Tombol WhatsApp statis di header dan footer ikut memakai nomor admin terbaru.
+      document.querySelectorAll('a[href^="https://wa.me/"]').forEach((link) => {
+        link.href = link.href.replace(/wa\.me\/\d+/, `wa.me/${whatsappNumber}`);
+      });
+    }
     return Array.isArray(data.products) ? data.products : [];
   }
 
@@ -472,6 +480,63 @@
     }
   }
 
+  // ---------- Pembayaran manual (QR / transfer toko + konfirmasi WhatsApp) ----------
+
+  function formatServerDate(value) {
+    if (!value) return "";
+    const date = new Date(value.replace(" ", "T") + "+08:00");
+    return Number.isNaN(date.getTime())
+      ? value
+      : `${new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(date)} WITA`;
+  }
+
+  function paymentConfirmUrl(order) {
+    const message = [
+      `Halo Oleena, saya sudah membayar pesanan ${order.code}.`,
+      `Nama: ${order.customerName}`,
+      `Total dibayar: ${formatPrice(order.total)}`,
+      "Bukti transfer saya lampirkan. Terima kasih!"
+    ].join("\n");
+    const number = order.payment && /^62\d{8,13}$/.test(order.payment.whatsapp || "") ? order.payment.whatsapp : whatsappNumber;
+    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+  }
+
+  async function copyText(text, label) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(label);
+    } catch (error) {
+      showToast(text);
+    }
+  }
+
+  function manualPaymentBox(order) {
+    const pay = order.status === "pending_payment" ? order.payment : null;
+    if (!pay) return "";
+    const lastDigits = String(order.total % 1000).padStart(3, "0");
+    const account = (pay.bankAccount || "").replace(/[^0-9]/g, "");
+    return `
+      <div class="pay-box">
+        <p class="pay-label">Total yang harus dibayar</p>
+        <div class="pay-amount">
+          <strong>${formatPrice(order.total)}</strong>
+          <button class="secondary-button" type="button" data-copy-text="${order.total}" data-copy-label="Nominal disalin">Salin</button>
+        </div>
+        <p class="pay-hint">Bayar <b>tepat</b> sampai 3 digit terakhir (<b>${lastDigits}</b>)${order.uniqueCode ? `, sudah termasuk kode unik ${formatPrice(order.uniqueCode)}` : ""}, supaya pembayaran cepat dicek.</p>
+        ${pay.qr ? `
+          <img class="pay-qr" src="${escapeHtml(pay.qr)}" alt="QR pembayaran Oleena" width="280" height="280">
+          <a class="secondary-button" href="${escapeHtml(pay.qr)}" download="QR-Oleena-${escapeHtml(order.code)}.png">Simpan gambar QR</a>
+          <p class="pay-hint">Scan dengan aplikasi bank atau e-wallet. Kalau membayar dari HP ini, simpan gambar QR lalu pilih "scan dari galeri".</p>` : ""}
+        ${account ? `
+          <div class="pay-bank">
+            <div><span>${escapeHtml(pay.bankName || "Transfer bank")}</span><strong>${escapeHtml(pay.bankAccount)}</strong>${pay.bankHolder ? `<small>a.n. ${escapeHtml(pay.bankHolder)}</small>` : ""}</div>
+            <button class="secondary-button" type="button" data-copy-text="${account}" data-copy-label="Nomor rekening disalin">Salin</button>
+          </div>` : ""}
+        ${pay.note ? `<p class="pay-note">${escapeHtml(pay.note)}</p>` : ""}
+        <p class="pay-deadline">Bayar sebelum ${escapeHtml(formatServerDate(order.expiresAt))}. Setelah membayar, kirim bukti transfer lewat tombol WhatsApp di bawah.</p>
+      </div>`;
+  }
+
   function saveOrderToken(code, token) {
     try {
       const saved = JSON.parse(localStorage.getItem("oleena:orders") || "{}");
@@ -498,6 +563,7 @@
       <p class="eyebrow">Pesanan dibuat</p>
       <h3>${escapeHtml(order.code)}</h3>
       <p class="order-status">${escapeHtml(orderStatusLabels[order.status] || order.status)}</p>
+      ${manualPaymentBox(order)}
       <ul class="order-lines">${items}</ul>
       <dl class="order-summary">
         <div><dt>Tujuan</dt><dd>${escapeHtml(order.areaName)}</dd></div>
@@ -507,8 +573,12 @@
         <div class="is-total"><dt>Total bayar</dt><dd>${formatPrice(order.total)}</dd></div>
       </dl>
       <div class="order-actions">
-        ${order.status === "pending_payment" ? `
+        ${order.status === "pending_payment" && order.paymentMethod === "midtrans" ? `
           <button class="primary-button" type="button" data-order-pay>Bayar sekarang</button>
+          <button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>
+        ` : ""}
+        ${order.status === "pending_payment" && order.payment ? `
+          <a class="primary-button" href="${paymentConfirmUrl(order)}" target="_blank" rel="noreferrer">Sudah bayar? Konfirmasi via WhatsApp</a>
           <button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>
         ` : ""}
         <a class="secondary-button" href="${orderWhatsappUrl(order)}" target="_blank" rel="noreferrer">Hubungi via WhatsApp</a>
@@ -1085,6 +1155,11 @@
   });
 
   orderPanel.addEventListener("click", (event) => {
+    const copy = event.target.closest("[data-copy-text]");
+    if (copy) {
+      copyText(copy.dataset.copyText, copy.dataset.copyLabel || "Disalin");
+      return;
+    }
     const pay = event.target.closest("[data-order-pay]");
     if (pay) {
       payOrder(pay);
