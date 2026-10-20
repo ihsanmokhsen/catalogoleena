@@ -729,7 +729,7 @@
         <div class="cart-item-body">
           <h3>${product.name}</h3>
           <p>${product.series}</p>
-          <strong>${formatPrice(product.price)}</strong>
+          <strong>${formatPrice(product.price * product.qty)}${product.qty > 1 ? ` <small>(${product.qty} × ${formatPrice(product.price)})</small>` : ""}</strong>
         </div>
         <div class="quantity-control" aria-label="Jumlah ${product.name}">
           <button type="button" data-cart-dec="${product.id}" aria-label="Kurangi ${product.name}">-</button>
