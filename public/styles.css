@@ -1371,3 +1371,89 @@ button.primary-button {
   right: 12px;
   z-index: 1;
 }
+
+
+/* ---------- Umpan balik tambah keranjang ---------- */
+
+button,
+a.primary-button,
+a.secondary-button,
+.cta-link {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cart-add-button,
+.primary-button,
+.secondary-button,
+.cta-link,
+.mobile-cart-bar {
+  transition: transform 120ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.cart-add-button:not(:disabled):active,
+.primary-button:not(:disabled):active,
+.secondary-button:not(:disabled):active,
+.cta-link:active,
+.mobile-cart-bar:active {
+  transform: scale(0.95);
+}
+
+.cart-add-button.is-added,
+.primary-button.is-added {
+  border-color: #1b7a3d;
+  background: #1b7a3d;
+  color: #fff;
+  animation: added-pop 360ms ease;
+}
+
+.cart-flyer {
+  position: fixed;
+  z-index: 60;
+  object-fit: cover;
+  pointer-events: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  will-change: transform, opacity;
+}
+
+.cart-count.is-bumped {
+  animation: cart-bump 420ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.mobile-cart-bar.is-bumped {
+  animation: bar-bump 380ms ease;
+}
+
+@keyframes added-pop {
+  0% { transform: scale(0.94); }
+  60% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes cart-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.55); background: var(--accent); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bar-bump {
+  0% { transform: translateY(0); }
+  35% { transform: translateY(-6px); }
+  100% { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-add-button,
+  .primary-button,
+  .secondary-button,
+  .cta-link,
+  .mobile-cart-bar {
+    transition: none;
+  }
+
+  .cart-add-button.is-added,
+  .primary-button.is-added,
+  .cart-count.is-bumped,
+  .mobile-cart-bar.is-bumped {
+    animation: none;
+  }
+}

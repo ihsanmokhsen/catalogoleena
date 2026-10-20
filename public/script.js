@@ -603,7 +603,56 @@
     }
   }
 
-  function addToCart(productId) {
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function restartAnimation(element, className) {
+    if (!element) return;
+    element.classList.remove(className);
+    void element.offsetWidth; // paksa reflow agar animasi bisa diulang
+    element.classList.add(className);
+  }
+
+  // Tombol berubah sejenak menjadi "Ditambahkan", lalu kembali ke label normal.
+  function confirmButton(button, product) {
+    if (!button) return;
+    window.clearTimeout(button.confirmTimer);
+    button.classList.add("is-added");
+    button.textContent = "✓ Ditambahkan";
+    button.confirmTimer = window.setTimeout(() => {
+      button.classList.remove("is-added");
+      button.textContent = button.classList.contains("cart-add-button") ? cartButtonLabel(product) : "Tambah keranjang";
+    }, 1100);
+  }
+
+  // Foto produk "terbang" ke ikon keranjang di header.
+  function flyToCart(sourceImage) {
+    if (!sourceImage || reduceMotion.matches || typeof sourceImage.animate !== "function") return;
+    const from = sourceImage.getBoundingClientRect();
+    const to = cartCount.getBoundingClientRect();
+    if (!from.width || !to.width) return;
+
+    const flyer = sourceImage.cloneNode();
+    flyer.removeAttribute("srcset");
+    flyer.src = sourceImage.currentSrc || sourceImage.src;
+    flyer.className = "cart-flyer";
+    Object.assign(flyer.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` });
+    document.body.append(flyer);
+
+    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    flyer.animate([
+      { transform: "translate(0, 0) scale(1)", opacity: 0.95, borderRadius: "6px" },
+      { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 40}px) scale(0.45)`, opacity: 0.9, borderRadius: "16px", offset: 0.45 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0.06)`, opacity: 0.2, borderRadius: "50%" }
+    ], { duration: 650, easing: "cubic-bezier(0.4, 0, 0.2, 1)" }).finished
+      .catch(() => {})
+      .finally(() => {
+        flyer.remove();
+        restartAnimation(cartCount, "is-bumped");
+      });
+  }
+
+  function addToCart(productId, button = null) {
     state.order = null;
     const product = products.find((item) => item.id === productId);
     if (!product || product.status === "sold-out") {
@@ -615,6 +664,14 @@
     syncProductCartButton(productId);
     renderCart();
     showToast(`${product.name} masuk keranjang`);
+
+    if (navigator.vibrate) navigator.vibrate(12);
+    confirmButton(button, product);
+    restartAnimation(mobileCartBar, "is-bumped");
+    // Dari dalam dialog detail, foto tidak diterbangkan karena dialog berada di lapisan paling atas.
+    const card = button && !button.closest("dialog") ? button.closest(".product-card") : null;
+    if (card) flyToCart(card.querySelector(".product-media img"));
+    else restartAnimation(cartCount, "is-bumped");
   }
 
   function updateCartQty(productId, delta) {
@@ -797,7 +854,7 @@
     const detail = event.target.closest("[data-product]");
     const addCart = event.target.closest("[data-add-cart]");
     if (addCart) {
-      addToCart(addCart.dataset.addCart);
+      addToCart(addCart.dataset.addCart, addCart);
       return;
     }
     if (!detail) return;
@@ -831,7 +888,7 @@
 
     const addCart = event.target.closest("[data-add-cart]");
     if (addCart) {
-      addToCart(addCart.dataset.addCart);
+      addToCart(addCart.dataset.addCart, addCart);
       return;
     }
 
