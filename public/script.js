@@ -7,7 +7,8 @@
     sort: "featured",
     visibleCount: Number.MAX_SAFE_INTEGER,
     favorites: new Set(JSON.parse(localStorage.getItem("oleena:favorites") || "[]")),
-    cart: new Map(JSON.parse(localStorage.getItem("oleena:cart") || "[]"))
+    cart: new Map(JSON.parse(localStorage.getItem("oleena:cart") || "[]")),
+    shipping: { area: null, areas: [], rates: [] }
   };
 
   const seriesFilters = document.querySelector("#seriesFilters");
@@ -40,9 +41,11 @@
   const checkoutName = document.querySelector("#checkoutName");
   const checkoutPhone = document.querySelector("#checkoutPhone");
   const checkoutAddress = document.querySelector("#checkoutAddress");
-  const checkoutCity = document.querySelector("#checkoutCity");
+  const checkoutArea = document.querySelector("#checkoutArea");
+  const areaResults = document.querySelector("#areaResults");
+  const shippingService = document.querySelector("#shippingService");
+  const shippingStatus = document.querySelector("#shippingStatus");
   const checkoutNote = document.querySelector("#checkoutNote");
-  const shippingCost = document.querySelector("#shippingCost");
   const mobileCartBar = document.querySelector("#mobileCartBar");
   const mobileCartSummary = document.querySelector("#mobileCartSummary");
   const pageLoaderOverlay = document.querySelector("#pageLoaderOverlay");
@@ -243,6 +246,7 @@
 
   function saveCart() {
     localStorage.setItem("oleena:cart", JSON.stringify(Array.from(state.cart.entries())));
+    scheduleRatesRefresh();
   }
 
   function getCartProducts() {
@@ -260,9 +264,131 @@
     return getCartProducts().reduce((total, product) => total + product.price * product.qty, 0);
   }
 
+  function getSelectedRate() {
+    return state.shipping.rates.find((rate) => rate.key === shippingService.value) || null;
+  }
+
   function parseShippingValue() {
-    const shipping = Number(shippingCost.value || 0);
-    return Number.isFinite(shipping) && shipping > 0 ? shipping : 0;
+    const rate = getSelectedRate();
+    return rate ? rate.price : 0;
+  }
+
+  function setShippingStatus(message, isError = false) {
+    shippingStatus.textContent = message;
+    shippingStatus.classList.toggle("is-error", isError);
+  }
+
+  function rateLabel(rate) {
+    const duration = rate.duration ? `, ${rate.duration}` : "";
+    return `${rate.courierName} ${rate.serviceName} - ${formatPrice(rate.price)}${duration}`;
+  }
+
+  function renderRates() {
+    const previous = shippingService.value;
+    const rates = state.shipping.rates;
+    if (!rates.length) {
+      shippingService.innerHTML = `<option value="">${state.shipping.area ? "Tidak ada kurir tersedia" : "Pilih tujuan dulu"}</option>`;
+      shippingService.disabled = true;
+      return;
+    }
+    shippingService.innerHTML = rates.map((rate) => `
+      <option value="${escapeHtml(rate.key)}">${escapeHtml(rateLabel(rate))}</option>
+    `).join("");
+    shippingService.disabled = false;
+    // Pertahankan pilihan kurir sebelumnya bila masih ada, selain itu pakai yang termurah.
+    shippingService.value = rates.some((rate) => rate.key === previous) ? previous : rates[0].key;
+  }
+
+  async function postJson(url, body, signal) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+      signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return data;
+  }
+
+  let ratesController = null;
+  let ratesTimer = null;
+
+  function scheduleRatesRefresh() {
+    window.clearTimeout(ratesTimer);
+    ratesTimer = window.setTimeout(refreshRates, 500);
+  }
+
+  async function refreshRates() {
+    if (ratesController) ratesController.abort();
+    const area = state.shipping.area;
+    const items = Array.from(state.cart.entries()).map(([id, qty]) => ({ id, qty }));
+    if (!area || !items.length) {
+      state.shipping.rates = [];
+      renderRates();
+      setShippingStatus(area ? "Keranjang masih kosong" : "");
+      renderCart();
+      return;
+    }
+
+    ratesController = new AbortController();
+    shippingService.disabled = true;
+    setShippingStatus("Menghitung ongkir...");
+    try {
+      const data = await postJson("api/shipping-rates.php", { areaId: area.id, items }, ratesController.signal);
+      state.shipping.rates = data.rates || [];
+      setShippingStatus(state.shipping.rates.length ? `Berat paket ${(data.weightGram / 1000).toLocaleString("id-ID")} kg` : "Tidak ada kurir untuk tujuan ini");
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      state.shipping.rates = [];
+      setShippingStatus(error.message, true);
+    }
+    renderRates();
+    renderCart();
+  }
+
+  let areaController = null;
+  let areaTimer = null;
+
+  function closeAreaResults() {
+    areaResults.hidden = true;
+    checkoutArea.setAttribute("aria-expanded", "false");
+  }
+
+  function renderAreaResults(content) {
+    areaResults.innerHTML = content;
+    areaResults.hidden = false;
+    checkoutArea.setAttribute("aria-expanded", "true");
+  }
+
+  async function searchAreas(query) {
+    if (areaController) areaController.abort();
+    areaController = new AbortController();
+    renderAreaResults("<p>Mencari wilayah...</p>");
+    try {
+      const response = await fetch(`api/shipping-areas.php?q=${encodeURIComponent(query)}`, {
+        headers: { Accept: "application/json" },
+        signal: areaController.signal
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      state.shipping.areas = data.areas || [];
+      renderAreaResults(state.shipping.areas.length
+        ? state.shipping.areas.map((area, index) => `
+          <button type="button" role="option" data-area-index="${index}">${escapeHtml(area.name)}</button>
+        `).join("")
+        : "<p>Wilayah tidak ditemukan</p>");
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      renderAreaResults(`<p>${escapeHtml(error.message)}</p>`);
+    }
+  }
+
+  function selectArea(area) {
+    state.shipping.area = area;
+    checkoutArea.value = area.name;
+    closeAreaResults();
+    refreshRates();
   }
 
   function cartButtonLabel(product) {
@@ -299,21 +425,23 @@
     const customerName = checkoutName.value.trim() || "-";
     const customerPhone = checkoutPhone.value.trim() || "-";
     const customerAddress = checkoutAddress.value.trim() || "-";
-    const customerCity = checkoutCity.value.trim() || "-";
+    const area = state.shipping.area ? state.shipping.area.name : "-";
+    const rate = getSelectedRate();
     const note = checkoutNote.value.trim() || "-";
 
     return [
       "Halo Oleena, saya ingin order:",
       `Nama: ${customerName}`,
       `No HP: ${customerPhone}`,
-      `Kota/Kecamatan: ${customerCity}`,
+      `Tujuan: ${area}`,
       `Alamat: ${customerAddress}`,
       ...items.map((product, index) => `${index + 1}. ${product.name} - ${product.series} x${product.qty} (${formatPrice(product.price * product.qty)})`),
       `Subtotal produk: ${formatPrice(subtotal)}`,
+      `Kurir: ${rate ? `${rate.courierName} ${rate.serviceName}` : "-"}`,
       `Ongkir: ${formatPrice(shipping)}`,
       `Total bayar: ${formatPrice(total)}`,
       `Catatan: ${note}`,
-      "Mohon konfirmasi stok, ongkir, dan pembayaran ya."
+      "Mohon konfirmasi stok dan pembayaran ya."
     ].join("\n");
   }
 
@@ -368,7 +496,8 @@
     const hasCustomerData = checkoutName.value.trim()
       && checkoutPhone.value.trim()
       && checkoutAddress.value.trim()
-      && checkoutCity.value.trim();
+      && state.shipping.area
+      && getSelectedRate();
 
     cartCount.textContent = itemCount;
     mobileCartSummary.textContent = `${itemCount} item - ${formatPrice(grandTotal)}`;
@@ -578,10 +707,49 @@
 
   clearCart.addEventListener("click", clearCartItems);
 
-  [checkoutName, checkoutPhone, checkoutAddress, checkoutCity, checkoutNote, shippingCost].forEach((field) => {
+  [checkoutName, checkoutPhone, checkoutAddress, checkoutNote].forEach((field) => {
     field.addEventListener("input", () => {
       renderCart();
     });
+  });
+
+  shippingService.addEventListener("change", renderCart);
+
+  checkoutArea.addEventListener("input", () => {
+    const query = checkoutArea.value.trim();
+    if (state.shipping.area) {
+      state.shipping.area = null;
+      state.shipping.rates = [];
+      renderRates();
+      setShippingStatus("");
+      renderCart();
+    }
+    window.clearTimeout(areaTimer);
+    if (query.length < 3) {
+      if (areaController) areaController.abort();
+      closeAreaResults();
+      return;
+    }
+    areaTimer = window.setTimeout(() => searchAreas(query), 350);
+  });
+
+  checkoutArea.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !areaResults.hidden) {
+      // Tutup daftar wilayah saja, jangan ikut menutup dialog keranjang.
+      event.preventDefault();
+      closeAreaResults();
+    }
+  });
+
+  areaResults.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-area-index]");
+    if (!option) return;
+    const area = state.shipping.areas[Number(option.dataset.areaIndex)];
+    if (area) selectArea(area);
+  });
+
+  cartDialog.addEventListener("click", (event) => {
+    if (!event.target.closest(".area-field")) closeAreaResults();
   });
 
   checkoutCart.addEventListener("click", (event) => {

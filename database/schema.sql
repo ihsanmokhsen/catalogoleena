@@ -17,3 +17,16 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_products_listing (is_active, catalog_page, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS api_rate_limits (
+    bucket VARCHAR(120) NOT NULL PRIMARY KEY,
+    hits INT UNSIGNED NOT NULL DEFAULT 0,
+    window_start DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS api_cache (
+    cache_key CHAR(64) NOT NULL PRIMARY KEY,
+    payload MEDIUMTEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    INDEX idx_api_cache_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

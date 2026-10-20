@@ -797,6 +797,7 @@ a:focus-visible {
 }
 
 .checkout-fields input,
+.checkout-fields select,
 .checkout-fields textarea {
   width: 100%;
   min-height: 40px;
@@ -805,6 +806,65 @@ a:focus-visible {
   background: #fff;
   color: var(--ink);
   padding: 0 10px;
+}
+
+.area-field {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+
+.area-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.area-results button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  padding: 10px;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.area-results button:hover,
+.area-results button:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.area-results p {
+  margin: 0;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.field-hint.is-error {
+  color: var(--accent);
 }
 
 .checkout-fields textarea {

@@ -123,13 +123,17 @@
               <span>Alamat lengkap</span>
               <textarea id="checkoutAddress" rows="2" placeholder="Jalan, RT/RW, kelurahan, kecamatan"></textarea>
             </label>
-            <label>
-              <span>Kota / Kecamatan</span>
-              <input id="checkoutCity" type="text" placeholder="Contoh: Makassar, Panakkukang">
-            </label>
-            <label>
-              <span>Ongkir (Rp)</span>
-              <input id="shippingCost" type="number" min="0" step="1000" value="0">
+            <div class="wide area-field">
+              <label for="checkoutArea"><span>Kecamatan / Kota tujuan</span></label>
+              <input id="checkoutArea" type="search" autocomplete="off" placeholder="Ketik min. 3 huruf, contoh: Oebobo" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="areaResults">
+              <div id="areaResults" class="area-results" role="listbox" hidden></div>
+            </div>
+            <label class="wide">
+              <span>Kurir</span>
+              <select id="shippingService" disabled>
+                <option value="">Pilih tujuan dulu</option>
+              </select>
+              <small id="shippingStatus" class="field-hint" aria-live="polite"></small>
             </label>
             <label class="wide">
               <span>Catatan</span>

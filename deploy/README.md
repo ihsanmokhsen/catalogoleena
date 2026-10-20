@@ -5,6 +5,7 @@ Stack mengikuti standar BPAD Simple PHP Stack: Nginx + PHP-FPM 8.3 + MySQL/Maria
 ## Struktur
 
 ```text
+bin/         skrip CLI (cari Area ID Biteship)
 public/      webroot (index.html, script.js, styles.css, assets/, api/)
 src/         kode PHP bersama, tidak bisa diakses dari browser
 config/      config.php berisi kredensial (tidak ikut git)
@@ -33,6 +34,23 @@ Domain: `oleena.hilmimokhsen.my.id`
    php database/seed_products.php
    ```
 8. Buka `https://oleena.hilmimokhsen.my.id/api/products.php`, pastikan muncul JSON produk.
+
+## Ongkir (Biteship)
+
+1. Daftar di biteship.com, aktifkan **Testing Mode**, lalu salin API key `biteship_test.xxx` ke `shipping.biteship_key` di `config/config.php`.
+2. Cari Area ID lokasi toko dan isi ke `shipping.origin_area_id`:
+   ```bash
+   php bin/find-area.php "nama kecamatan toko"
+   ```
+3. Atur berat asli produk (gram) di database, contoh:
+   ```sql
+   UPDATE products SET weight_gram = 200 WHERE series = 'Layali Series 2.0';
+   ```
+4. Coba cek ongkir di keranjang. Jika sudah benar, ganti key menjadi `biteship_live.xxx`.
+
+Catatan keamanan: API key hanya ada di server. Browser hanya mengirim Area ID tujuan dan daftar `{id, qty}`. Berat dan nilai paket dihitung ulang dari database. Endpoint ongkir dibatasi per IP (rate limit) dan hasilnya di-cache (wilayah 7 hari, tarif 1 jam) supaya hemat kuota API.
+
+Saat skema berubah (misalnya setelah `git pull`), jalankan lagi `mysql -u oleena -p oleena < database/schema.sql`. Tabel yang sudah ada tidak akan ditimpa.
 
 ## Update
 

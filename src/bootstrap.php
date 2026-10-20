@@ -59,3 +59,71 @@ function api_boot(array $allowedMethods): void
         json_response(['error' => 'Method tidak diizinkan.'], 405, ['Allow' => implode(', ', $allowedMethods)]);
     }
 }
+
+function client_ip(): string
+{
+    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+// Batasi jumlah request per IP dalam satu jendela waktu (fixed window, disimpan di MySQL).
+function rate_limit(string $name, int $maxHits, int $windowSeconds): void
+{
+    $bucket = $name . ':' . hash('sha256', client_ip());
+    db()->prepare(
+        'INSERT INTO api_rate_limits (bucket, hits, window_start) VALUES (:bucket, 1, NOW())
+         ON DUPLICATE KEY UPDATE
+           hits = IF(window_start < NOW() - INTERVAL :w1 SECOND, 1, hits + 1),
+           window_start = IF(window_start < NOW() - INTERVAL :w2 SECOND, NOW(), window_start)'
+    )->execute(['bucket' => $bucket, 'w1' => $windowSeconds, 'w2' => $windowSeconds]);
+
+    $stmt = db()->prepare('SELECT hits FROM api_rate_limits WHERE bucket = ?');
+    $stmt->execute([$bucket]);
+    if ((int) $stmt->fetchColumn() > $maxHits) {
+        json_response(['error' => 'Terlalu banyak permintaan, coba lagi sebentar.'], 429, ['Retry-After' => (string) $windowSeconds]);
+    }
+
+    if (random_int(1, 100) === 1) {
+        db()->exec('DELETE FROM api_rate_limits WHERE window_start < NOW() - INTERVAL 1 DAY');
+    }
+}
+
+function cache_get(string $key): ?array
+{
+    $stmt = db()->prepare('SELECT payload FROM api_cache WHERE cache_key = ? AND expires_at > NOW()');
+    $stmt->execute([hash('sha256', $key)]);
+    $payload = $stmt->fetchColumn();
+    return $payload === false ? null : json_decode($payload, true);
+}
+
+function cache_set(string $key, array $value, int $ttlSeconds): void
+{
+    db()->prepare(
+        'REPLACE INTO api_cache (cache_key, payload, expires_at) VALUES (:key, :payload, NOW() + INTERVAL :ttl SECOND)'
+    )->execute([
+        'key' => hash('sha256', $key),
+        'payload' => json_encode($value, JSON_UNESCAPED_UNICODE),
+        'ttl' => $ttlSeconds,
+    ]);
+
+    if (random_int(1, 100) === 1) {
+        db()->exec('DELETE FROM api_cache WHERE expires_at < NOW()');
+    }
+}
+
+// Hanya terima body JSON kecil. Mewajibkan Content-Type JSON juga menahan form lintas situs (CSRF).
+function read_json_body(int $maxBytes = 16384): array
+{
+    $type = $_SERVER['CONTENT_TYPE'] ?? '';
+    if (stripos($type, 'application/json') !== 0) {
+        json_response(['error' => 'Content-Type harus application/json.'], 415);
+    }
+    $raw = file_get_contents('php://input', false, null, 0, $maxBytes + 1);
+    if ($raw === false || strlen($raw) > $maxBytes) {
+        json_response(['error' => 'Data terlalu besar.'], 413);
+    }
+    $data = json_decode($raw, true);
+    if (!is_array($data)) {
+        json_response(['error' => 'Format data tidak valid.'], 400);
+    }
+    return $data;
+}
