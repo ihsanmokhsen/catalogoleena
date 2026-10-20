@@ -97,7 +97,10 @@
 
     <dialog id="imageViewer" class="image-viewer" aria-label="Foto produk ukuran penuh">
       <button id="closeImageViewer" class="close-button" type="button" aria-label="Tutup foto">Close</button>
-      <img id="imageViewerImg" alt="">
+      <div class="gallery viewer-gallery" data-gallery>
+        <div id="imageViewerTrack" class="gallery-track"></div>
+        <span class="gallery-count" aria-live="polite"></span>
+      </div>
     </dialog>
 
     <dialog id="cartDialog" class="cart-dialog">

@@ -194,3 +194,99 @@ function slugify(string $text): string
     $slug = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($ascii)), '-');
     return substr($slug, 0, 100) ?: 'produk';
 }
+
+// ---------- Galeri (banyak foto per produk) ----------
+
+const PRODUCT_MAX_PHOTOS = 8;
+
+// Ubah $_FILES['photos'] (input multiple) menjadi daftar file, lewati slot kosong.
+function uploaded_photos(string $field = 'photos'): array
+{
+    $raw = $_FILES[$field] ?? null;
+    if (!$raw || !is_array($raw['name'] ?? null)) {
+        return [];
+    }
+    $files = [];
+    foreach (array_keys($raw['name']) as $i) {
+        if (($raw['error'][$i] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        $files[] = [
+            'name' => $raw['name'][$i],
+            'type' => $raw['type'][$i],
+            'tmp_name' => $raw['tmp_name'][$i],
+            'error' => $raw['error'][$i],
+            'size' => $raw['size'][$i],
+        ];
+    }
+    return $files;
+}
+
+/**
+ * Proses beberapa foto sekaligus. Bila satu gagal, semua yang sudah tersimpan dihapus lagi.
+ *
+ * @return array{paths: string[], warnings: string[]}
+ */
+function product_images_store_many(array $files, string $slug): array
+{
+    $paths = [];
+    $warnings = [];
+    try {
+        foreach ($files as $index => $file) {
+            try {
+                $result = product_image_store($file, $slug);
+            } catch (InvalidArgumentException $e) {
+                throw new InvalidArgumentException('Foto ' . ($index + 1) . ': ' . $e->getMessage());
+            }
+            $paths[] = $result['path'];
+            if ($result['warning']) {
+                $warnings[] = 'Foto ' . ($index + 1) . ' kurang tajam';
+            }
+        }
+    } catch (Throwable $e) {
+        array_map('product_image_delete', $paths);
+        throw $e;
+    }
+    return ['paths' => $paths, 'warnings' => $warnings];
+}
+
+/**
+ * Daftar foto produk berurutan. Produk lama tanpa galeri memakai products.image (id null).
+ *
+ * @return array<int, array{id: ?int, path: string}>
+ */
+function product_gallery(int $productId): array
+{
+    $stmt = db()->prepare('SELECT id, path FROM product_images WHERE product_id = ? ORDER BY sort_order, id');
+    $stmt->execute([$productId]);
+    $rows = array_map(fn (array $row) => ['id' => (int) $row['id'], 'path' => $row['path']], $stmt->fetchAll());
+    if ($rows) {
+        return $rows;
+    }
+    $stmt = db()->prepare('SELECT image FROM products WHERE id = ?');
+    $stmt->execute([$productId]);
+    $image = $stmt->fetchColumn();
+    return $image ? [['id' => null, 'path' => $image]] : [];
+}
+
+// Pastikan foto lama (products.image) ikut tercatat di galeri sebelum galeri diubah.
+function product_gallery_materialize(int $productId): void
+{
+    $gallery = product_gallery($productId);
+    if ($gallery && $gallery[0]['id'] === null) {
+        db()->prepare('INSERT INTO product_images (product_id, path, sort_order) VALUES (?, ?, 0)')
+            ->execute([$productId, $gallery[0]['path']]);
+    }
+}
+
+// Tulis ulang urutan 0..n-1 dan salin foto pertama sebagai sampul (products.image).
+function product_gallery_save_order(int $productId, array $imageIds): void
+{
+    $update = db()->prepare('UPDATE product_images SET sort_order = ? WHERE id = ? AND product_id = ?');
+    foreach (array_values($imageIds) as $order => $imageId) {
+        $update->execute([$order, $imageId, $productId]);
+    }
+    db()->prepare(
+        'UPDATE products SET image = (SELECT path FROM product_images WHERE product_id = ? ORDER BY sort_order, id LIMIT 1) WHERE id = ?'
+    )->execute([$productId, $productId]);
+}

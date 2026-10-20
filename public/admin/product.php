@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Tambah produk baru (tanpa ?id) atau edit produk lengkap beserta fotonya (?id=123).
+// Tambah produk baru (tanpa ?id) atau edit produk beserta galeri fotonya (?id=123).
 
 require __DIR__ . '/../../src/admin.php';
 require __DIR__ . '/../../src/images.php';
@@ -23,6 +23,7 @@ if ($id > 0) {
     }
 }
 $isNew = $product === null;
+$self = $isNew ? '/admin/product.php' : '/admin/product.php?id=' . $id;
 
 $values = $product ?? [
     'name' => '', 'series' => '', 'price' => '', 'weight_gram' => 250, 'status' => 'available', 'is_active' => 1,
@@ -30,12 +31,98 @@ $values = $product ?? [
 ];
 $error = null;
 
+function warning_suffix(array $warnings): string
+{
+    return $warnings
+        ? ' Perhatian: ' . implode(', ', $warnings) . '. Sebaiknya foto ulang dengan cahaya cukup dan kamera diam.'
+        : '';
+}
+
+// Kelola galeri produk yang sudah ada: tambah foto, jadikan sampul, geser urutan, hapus.
+function handle_gallery_action(array $product, array $admin, string $self): never
+{
+    $productId = (int) $product['id'];
+    $action = (string) ($_POST['gallery_action'] ?? '');
+    $pdo = db();
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('SELECT id FROM products WHERE id = ? FOR UPDATE')->execute([$productId]);
+        product_gallery_materialize($productId);
+        $ids = array_column(product_gallery($productId), 'id');
+        $imageId = (int) ($_POST['image_id'] ?? 0);
+        $position = array_search($imageId, $ids, true);
+        $deletedPath = null;
+        $message = 'Galeri diperbarui.';
+
+        if ($action === 'add') {
+            $files = uploaded_photos();
+            if (!$files) {
+                throw new InvalidArgumentException('Pilih foto yang mau ditambahkan.');
+            }
+            if (count($ids) + count($files) > PRODUCT_MAX_PHOTOS) {
+                throw new InvalidArgumentException('Maksimal ' . PRODUCT_MAX_PHOTOS . ' foto per produk. Sekarang ada ' . count($ids) . '.');
+            }
+            $stored = product_images_store_many($files, $product['slug']);
+            $insert = $pdo->prepare('INSERT INTO product_images (product_id, path, sort_order) VALUES (?, ?, ?)');
+            foreach ($stored['paths'] as $path) {
+                $insert->execute([$productId, $path, count($ids)]);
+                $ids[] = (int) $pdo->lastInsertId();
+            }
+            $message = count($stored['paths']) . ' foto ditambahkan.' . warning_suffix($stored['warnings']);
+        } elseif ($position === false) {
+            throw new InvalidArgumentException('Foto tidak ditemukan.');
+        } elseif ($action === 'cover') {
+            array_splice($ids, $position, 1);
+            array_unshift($ids, $imageId);
+            $message = 'Sampul diganti.';
+        } elseif ($action === 'left' || $action === 'right') {
+            $target = $position + ($action === 'left' ? -1 : 1);
+            if (isset($ids[$target])) {
+                [$ids[$position], $ids[$target]] = [$ids[$target], $ids[$position]];
+            }
+        } elseif ($action === 'delete') {
+            if (count($ids) <= 1) {
+                throw new InvalidArgumentException('Produk harus punya minimal 1 foto.');
+            }
+            $stmt = $pdo->prepare('SELECT path FROM product_images WHERE id = ? AND product_id = ?');
+            $stmt->execute([$imageId, $productId]);
+            $deletedPath = $stmt->fetchColumn() ?: null;
+            $pdo->prepare('DELETE FROM product_images WHERE id = ? AND product_id = ?')->execute([$imageId, $productId]);
+            array_splice($ids, $position, 1);
+            $message = 'Foto dihapus.';
+        } else {
+            throw new InvalidArgumentException('Aksi tidak dikenal.');
+        }
+
+        product_gallery_save_order($productId, $ids);
+        $pdo->commit();
+    } catch (InvalidArgumentException $e) {
+        $pdo->rollBack();
+        flash($e->getMessage());
+        redirect($self . '#galeri');
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+
+    // File dihapus setelah commit, supaya tidak hilang bila transaksi batal.
+    product_image_delete($deletedPath);
+    error_log(sprintf('[oleena-admin] %s galeri produk #%d: %s', $admin['username'], $productId, $action));
+    flash($message);
+    redirect($self . '#galeri');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Bila file melebihi post_max_size, PHP mengosongkan $_POST sehingga token CSRF ikut hilang.
+    // Bila total upload melebihi post_max_size, PHP mengosongkan $_POST sehingga token CSRF ikut hilang.
     if (!$_POST && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
-        $error = 'Foto terlalu besar untuk server (maksimal 8 MB).';
+        $error = 'Total ukuran foto terlalu besar untuk server. Upload lebih sedikit foto sekaligus.';
     } else {
         csrf_verify();
+        if (!$isNew && isset($_POST['gallery_action'])) {
+            handle_gallery_action($product, $admin, $self);
+        }
+
         $values = array_merge($values, [
             'name' => trim((string) ($_POST['name'] ?? '')),
             'series' => trim((string) ($_POST['series'] ?? '')),
@@ -62,13 +149,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new InvalidArgumentException('Harga (min Rp1.000), berat (1-50.000 g), atau halaman katalog tidak valid.');
             }
 
-            $hasPhoto = ($_FILES['photo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
-            if ($isNew && !$hasPhoto) {
-                throw new InvalidArgumentException('Pilih foto produk.');
-            }
-
             $pdo = db();
             if ($isNew) {
+                $files = uploaded_photos();
+                if (!$files) {
+                    throw new InvalidArgumentException('Pilih minimal 1 foto produk.');
+                }
+                if (count($files) > PRODUCT_MAX_PHOTOS) {
+                    throw new InvalidArgumentException('Maksimal ' . PRODUCT_MAX_PHOTOS . ' foto per produk.');
+                }
+
                 // Slug dibuat sekali dan tidak diubah lagi, karena dipakai sebagai ID produk di keranjang pembeli.
                 $base = slugify("$series $name");
                 $slug = $base;
@@ -77,37 +167,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $slug = "$base-$n";
                 }
 
-                $upload = product_image_store($_FILES['photo'], $slug);
-                $image = $upload['path'];
+                $stored = product_images_store_many($files, $slug);
                 try {
+                    $pdo->beginTransaction();
                     $pdo->prepare(
                         'INSERT INTO products (slug, series, name, price, weight_gram, status, image, catalog_page, sort_order, is_active)
                          SELECT ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM products'
-                    )->execute([$slug, $series, $name, $price, $weight, $values['status'], $image, $page, $values['is_active']]);
+                    )->execute([$slug, $series, $name, $price, $weight, $values['status'], $stored['paths'][0], $page, $values['is_active']]);
+                    $id = (int) $pdo->lastInsertId();
+                    $insert = $pdo->prepare('INSERT INTO product_images (product_id, path, sort_order) VALUES (?, ?, ?)');
+                    foreach ($stored['paths'] as $order => $path) {
+                        $insert->execute([$id, $path, $order]);
+                    }
+                    $pdo->commit();
                 } catch (Throwable $e) {
-                    product_image_delete($image);
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    array_map('product_image_delete', $stored['paths']);
                     throw $e;
                 }
-                $id = (int) $pdo->lastInsertId();
-                error_log(sprintf('[oleena-admin] %s menambah produk #%d %s', $admin['username'], $id, $slug));
-                flash('Produk ditambahkan.' . ($upload['warning'] ? ' Perhatian: ' . $upload['warning'] : ''));
+                error_log(sprintf('[oleena-admin] %s menambah produk #%d %s (%d foto)', $admin['username'], $id, $slug, count($stored['paths'])));
+                flash('Produk ditambahkan dengan ' . count($stored['paths']) . ' foto.' . warning_suffix($stored['warnings']));
             } else {
-                $upload = $hasPhoto ? product_image_store($_FILES['photo'], $product['slug']) : null;
-                $newImage = $upload['path'] ?? null;
-                try {
-                    $pdo->prepare(
-                        'UPDATE products SET series = ?, name = ?, price = ?, weight_gram = ?, status = ?, image = ?,
-                           catalog_page = ?, is_active = ? WHERE id = ?'
-                    )->execute([$series, $name, $price, $weight, $values['status'], $newImage ?? $product['image'], $page, $values['is_active'], $id]);
-                } catch (Throwable $e) {
-                    product_image_delete($newImage);
-                    throw $e;
-                }
-                if ($newImage) {
-                    product_image_delete($product['image']);
-                }
+                $pdo->prepare(
+                    'UPDATE products SET series = ?, name = ?, price = ?, weight_gram = ?, status = ?, catalog_page = ?, is_active = ? WHERE id = ?'
+                )->execute([$series, $name, $price, $weight, $values['status'], $page, $values['is_active'], $id]);
                 error_log(sprintf('[oleena-admin] %s mengedit produk #%d', $admin['username'], $id));
-                flash('Produk diperbarui.' . (!empty($upload['warning']) ? ' Perhatian: ' . $upload['warning'] : ''));
+                flash('Produk diperbarui.');
             }
             redirect('/admin/products.php#p' . $id);
         } catch (InvalidArgumentException $e) {
@@ -117,6 +204,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $seriesList = db()->query('SELECT DISTINCT series FROM products ORDER BY series')->fetchAll(PDO::FETCH_COLUMN);
+$gallery = $isNew ? [] : product_gallery($id);
+$photoHint = 'JPG, PNG, atau WebP, maksimal 8 MB per foto, sampai ' . PRODUCT_MAX_PHOTOS . ' foto. Pakai foto asli dari kamera (minimal 1080×1440 px), potret 3:4, cahaya terang, dan kamera diam supaya tidak blur.';
 
 admin_header($isNew ? 'Tambah produk' : 'Edit produk', $admin);
 ?>
@@ -125,15 +214,63 @@ admin_header($isNew ? 'Tambah produk' : 'Edit produk', $admin);
 <?php if ($error): ?>
     <p class="error"><?= h($error) ?></p>
 <?php endif; ?>
-    <form class="card product-form" method="post" enctype="multipart/form-data">
-      <?= csrf_field() ?>
-      <div class="photo-field">
-        <img id="photoPreview" src="<?= $isNew ? '' : '/' . h($product['image']) ?>" alt="" <?= $isNew ? 'hidden' : '' ?>>
-        <label>Foto produk <?= $isNew ? '' : '<small>(kosongkan bila tidak diganti)</small>' ?>
-          <input id="photoInput" type="file" name="photo" accept="image/jpeg,image/png,image/webp" <?= $isNew ? 'required' : '' ?>>
+
+<?php if (!$isNew): ?>
+    <section class="card" id="galeri">
+      <h2>Foto produk (<?= count($gallery) ?>/<?= PRODUCT_MAX_PHOTOS ?>)</h2>
+      <p class="hint">Foto pertama menjadi sampul di katalog. Pembeli bisa menggeser (swipe) semua foto di halaman detail.</p>
+      <ol class="gallery-admin">
+<?php foreach ($gallery as $index => $photo): ?>
+        <li>
+          <img src="/<?= h(product_image_small($photo['path'])) ?>" alt="Foto <?= $index + 1 ?>" loading="lazy">
+          <span class="gallery-badge"><?= $index === 0 ? 'Sampul' : $index + 1 ?></span>
+<?php if ($photo['id'] !== null || count($gallery) > 1): ?>
+          <form method="post" class="gallery-actions">
+            <?= csrf_field() ?>
+            <input type="hidden" name="image_id" value="<?= (int) $photo['id'] ?>">
+<?php if ($index > 0): ?>
+            <button type="submit" name="gallery_action" value="left" title="Geser ke kiri" aria-label="Geser foto <?= $index + 1 ?> ke kiri">&larr;</button>
+<?php endif; ?>
+<?php if ($index < count($gallery) - 1): ?>
+            <button type="submit" name="gallery_action" value="right" title="Geser ke kanan" aria-label="Geser foto <?= $index + 1 ?> ke kanan">&rarr;</button>
+<?php endif; ?>
+<?php if ($index > 0): ?>
+            <button type="submit" name="gallery_action" value="cover">Sampul</button>
+<?php endif; ?>
+<?php if (count($gallery) > 1): ?>
+            <button type="submit" name="gallery_action" value="delete" class="danger" data-confirm="Hapus foto ini?">Hapus</button>
+<?php endif; ?>
+          </form>
+<?php endif; ?>
+        </li>
+<?php endforeach; ?>
+      </ol>
+<?php if (count($gallery) < PRODUCT_MAX_PHOTOS): ?>
+      <form method="post" enctype="multipart/form-data" class="gallery-upload">
+        <?= csrf_field() ?>
+        <input type="hidden" name="gallery_action" value="add">
+        <label>Tambah foto
+          <input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple required data-preview="addPreview" data-max="<?= PRODUCT_MAX_PHOTOS - count($gallery) ?>">
         </label>
-        <p class="hint">JPG, PNG, atau WebP, maksimal 8 MB. Pakai foto asli dari kamera (minimal 1080×1440 px), potret 3:4, cahaya terang, dan kamera diam supaya tidak blur.</p>
+        <div id="addPreview" class="preview-strip"></div>
+        <button class="primary" type="submit">Upload foto</button>
+        <p class="hint"><?= h($photoHint) ?></p>
+      </form>
+<?php endif; ?>
+    </section>
+<?php endif; ?>
+
+    <form class="card product-form<?= $isNew ? '' : ' no-photo' ?>" method="post" enctype="multipart/form-data">
+      <?= csrf_field() ?>
+<?php if ($isNew): ?>
+      <div class="photo-field">
+        <label>Foto produk <small>(bisa pilih beberapa sekaligus, foto pertama jadi sampul)</small>
+          <input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple required data-preview="newPreview" data-max="<?= PRODUCT_MAX_PHOTOS ?>">
+        </label>
+        <div id="newPreview" class="preview-strip"></div>
+        <p class="hint"><?= h($photoHint) ?></p>
       </div>
+<?php endif; ?>
       <div class="fields">
         <label>Nama produk <input name="name" value="<?= h($values['name']) ?>" required maxlength="120" placeholder="Contoh: Layali Bloom"></label>
         <label>Seri <input name="series" value="<?= h($values['series']) ?>" required maxlength="120" list="seriesList" placeholder="Pilih atau ketik seri baru"></label>
@@ -152,7 +289,7 @@ admin_header($isNew ? 'Tambah produk' : 'Edit produk', $admin);
         </label>
         <label>Halaman katalog <input type="number" name="catalog_page" value="<?= h($values['catalog_page']) ?>" min="1" max="999" required></label>
         <label class="check"><input type="checkbox" name="is_active" <?= $values['is_active'] ? 'checked' : '' ?>> Tampilkan di katalog</label>
-        <button class="primary" type="submit"><?= $isNew ? 'Simpan produk' : 'Simpan perubahan' ?></button>
+        <button class="primary" type="submit"><?= $isNew ? 'Simpan produk' : 'Simpan detail' ?></button>
       </div>
     </form>
     <script src="/admin/admin.js"></script>

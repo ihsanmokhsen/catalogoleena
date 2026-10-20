@@ -7,11 +7,17 @@ require __DIR__ . '/../../src/images.php';
 api_boot(['GET', 'HEAD']);
 
 $rows = db()->query(
-    'SELECT slug, series, name, price, weight_gram, status, image, catalog_page
+    'SELECT id, slug, series, name, price, weight_gram, status, image, catalog_page
      FROM products
      WHERE is_active = 1
      ORDER BY catalog_page, sort_order, id'
 )->fetchAll();
+
+// Semua foto galeri dalam satu query, dikelompokkan per produk.
+$galleries = [];
+foreach (db()->query('SELECT product_id, path FROM product_images ORDER BY product_id, sort_order, id') as $photo) {
+    $galleries[(int) $photo['product_id']][] = $photo['path'];
+}
 
 $products = array_map(fn (array $row) => [
     'id' => $row['slug'],
@@ -22,6 +28,10 @@ $products = array_map(fn (array $row) => [
     'status' => $row['status'],
     'image' => $row['image'],
     'imageSmall' => product_image_small($row['image']),
+    'images' => array_map(fn (string $path) => [
+        'src' => $path,
+        'small' => product_image_small($path),
+    ], $galleries[(int) $row['id']] ?? [$row['image']]),
     'page' => (int) $row['catalog_page'],
 ], $rows);
 

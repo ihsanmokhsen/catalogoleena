@@ -36,7 +36,7 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
    - Config: tempel isi `deploy/nginx-oleena.conf` (sesuaikan `fastcgi_pass` dengan socket PHP 8.3 di server)
 6. aaPanel > App Store > PHP 8.3 > Settings:
    - pastikan ekstensi `pdo_mysql`, `curl`, `mbstring`, `gd` (dengan dukungan JPEG/WebP), `fileinfo`, dan `exif` aktif
-   - set `expose_php = Off`, `upload_max_filesize = 8M`, dan `post_max_size = 10M`
+   - set `expose_php = Off`, `upload_max_filesize = 8M`, `post_max_size = 64M`, `max_file_uploads = 20`, dan `memory_limit = 256M` (untuk memproses foto HP beresolusi tinggi)
    - buat folder upload yang bisa ditulis PHP:
      ```bash
      mkdir -p /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads/products
@@ -138,6 +138,6 @@ Lokal memakai MySQL Homebrew dan server tiruan Biteship/Midtrans (`dev/mock-serv
 4. Jalankan dua server (atau lewat `.claude/launch.json`):
    ```bash
    PHP_CLI_SERVER_WORKERS=4 php -S localhost:8001 dev/mock-server.php
-   PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000 -t public
+   PHP_CLI_SERVER_WORKERS=4 php -d post_max_size=64M -d upload_max_filesize=8M -S localhost:8000 -t public
    ```
 5. Buka http://localhost:8000. Area yang tersedia di server tiruan antara lain Kupang, Jakarta, Bandung, Surabaya, Kuta, Makassar, Medan, dan Jayapura. Tombol "Bayar sekarang" membuka halaman simulasi pembayaran.

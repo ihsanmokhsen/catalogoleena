@@ -4,15 +4,32 @@
     {
       "name": "oleena-mock",
       "runtimeExecutable": "php",
-      "runtimeArgs": ["-S", "localhost:8001", "dev/mock-server.php"],
-      "env": { "PHP_CLI_SERVER_WORKERS": "4" },
+      "runtimeArgs": [
+        "-S",
+        "localhost:8001",
+        "dev/mock-server.php"
+      ],
+      "env": {
+        "PHP_CLI_SERVER_WORKERS": "4"
+      },
       "port": 8001
     },
     {
       "name": "oleena",
       "runtimeExecutable": "php",
-      "runtimeArgs": ["-S", "localhost:8000", "-t", "public"],
-      "env": { "PHP_CLI_SERVER_WORKERS": "4" },
+      "runtimeArgs": [
+        "-d",
+        "post_max_size=64M",
+        "-d",
+        "upload_max_filesize=8M",
+        "-S",
+        "localhost:8000",
+        "-t",
+        "public"
+      ],
+      "env": {
+        "PHP_CLI_SERVER_WORKERS": "4"
+      },
       "port": 8000
     }
   ]

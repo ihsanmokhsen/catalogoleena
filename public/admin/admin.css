@@ -134,3 +134,37 @@ tfoot td, tfoot th { color: var(--ink); }
 .fields label { display: grid; gap: 4px; }
 .fields label.check { display: inline-flex; }
 .fields button { justify-self: start; }
+
+.product-form.no-photo { grid-template-columns: 1fr; }
+
+.preview-strip { display: flex; gap: 8px; overflow-x: auto; }
+.preview-strip:empty { display: none; }
+.preview-strip figure { position: relative; flex: 0 0 84px; margin: 0; }
+.preview-strip img { width: 84px; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
+.preview-strip figcaption {
+  position: absolute; left: 4px; top: 4px;
+  padding: 1px 6px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 0.7rem;
+}
+
+.gallery-admin {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 12px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.gallery-admin li { position: relative; display: grid; gap: 6px; }
+.gallery-admin img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: var(--soft); }
+.gallery-badge {
+  position: absolute; left: 6px; top: 6px;
+  padding: 2px 8px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7); color: #fff; font-size: 0.72rem; font-weight: 600;
+}
+.gallery-actions { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.gallery-actions button { min-height: 32px; padding: 0 8px; font-size: 0.8rem; }
+.gallery-upload { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
+.gallery-upload label { display: grid; gap: 4px; }
+.gallery-upload button { justify-self: start; }
+.gallery-upload input[type="file"], .photo-field input[type="file"] { padding: 6px; min-height: auto; width: 100%; }

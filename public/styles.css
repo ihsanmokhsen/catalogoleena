@@ -1299,28 +1299,10 @@ button.primary-button {
   cursor: pointer;
 }
 
-.dialog-image-button {
-  position: relative;
-  display: block;
-  width: 100%;
-  border: 0;
-  padding: 0;
-  background: var(--soft);
-  cursor: zoom-in;
-}
-
-.dialog-image-button .dialog-image {
-  display: block;
-  aspect-ratio: 3 / 4;
-  height: auto;
-  max-height: 64vh;
-  object-fit: contain;
-}
-
 .zoom-hint {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  left: 10px;
+  top: 10px;
   border-radius: 999px;
   background: rgba(17, 17, 17, 0.72);
   color: #fff;
@@ -1352,17 +1334,6 @@ button.primary-button {
   }
 }
 
-@media (min-width: 740px) {
-  .dialog-image-button {
-    height: 100%;
-  }
-
-  .dialog-image-button .dialog-image {
-    height: 100%;
-    max-height: none;
-    aspect-ratio: auto;
-  }
-}
 
 .image-viewer {
   width: 100vw;
@@ -1379,13 +1350,6 @@ button.primary-button {
   background: #000;
 }
 
-.image-viewer img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  touch-action: pinch-zoom;
-}
 
 .image-viewer .close-button {
   position: fixed;
@@ -1485,4 +1449,168 @@ a.secondary-button,
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+
+/* ---------- Galeri foto (swipe) ---------- */
+
+.gallery {
+  position: relative;
+  background: var(--soft);
+}
+
+.gallery-track {
+  display: flex;
+  aspect-ratio: 3 / 4;
+  max-height: 64vh;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+.gallery-track::-webkit-scrollbar {
+  display: none;
+}
+
+.gallery-slide {
+  flex: 0 0 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+button.gallery-slide {
+  cursor: zoom-in;
+}
+
+.gallery-slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: none;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gallery-nav.is-prev { left: 10px; }
+.gallery-nav.is-next { right: 10px; }
+.gallery.is-first .gallery-nav.is-prev,
+.gallery.is-last .gallery-nav.is-next {
+  visibility: hidden;
+}
+
+/* Panah hanya untuk mouse; di HP cukup digeser. */
+@media (hover: hover) and (pointer: fine) {
+  .gallery-nav {
+    display: grid;
+    place-items: center;
+  }
+}
+
+.gallery-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.gallery-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  transition: width 160ms ease, background-color 160ms ease;
+}
+
+.gallery-dots span.is-active {
+  width: 18px;
+  background: #fff;
+}
+
+.gallery-count {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.72);
+  color: #fff;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.photo-count {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.7);
+  color: #fff;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+@media (min-width: 740px) {
+  .dialog-content > .gallery {
+    height: 100%;
+  }
+
+  .dialog-content > .gallery .gallery-track {
+    height: 100%;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+}
+
+/* Layar penuh: foto mengisi layar dan tetap bisa digeser. */
+.viewer-gallery {
+  height: 100%;
+  background: #000;
+}
+
+.viewer-gallery .gallery-track {
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
+.viewer-gallery .gallery-count {
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-dots span {
+    transition: none;
+  }
 }

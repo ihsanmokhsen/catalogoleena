@@ -11,7 +11,7 @@ Jalankan aplikasi: MySQL (`brew services start mysql`), lalu dua server lewat `.
 
 ```bash
 PHP_CLI_SERVER_WORKERS=4 php -S localhost:8001 dev/mock-server.php
-PHP_CLI_SERVER_WORKERS=4 php -S localhost:8000 -t public
+PHP_CLI_SERVER_WORKERS=4 php -d post_max_size=64M -d upload_max_filesize=8M -S localhost:8000 -t public
 ```
 
 - [ ] Coba belanja dari awal sampai akhir di http://localhost:8000: tambah ke keranjang, cari tujuan, pilih kurir, buat pesanan, bayar di halaman simulasi.

@@ -31,7 +31,7 @@
   const dialogContent = document.querySelector("#dialogContent");
   const closeDialog = document.querySelector("#closeDialog");
   const imageViewer = document.querySelector("#imageViewer");
-  const imageViewerImg = document.querySelector("#imageViewerImg");
+  const imageViewerTrack = document.querySelector("#imageViewerTrack");
   const closeImageViewer = document.querySelector("#closeImageViewer");
   const openCart = document.querySelector("#openCart");
   const cartCount = document.querySelector("#cartCount");
@@ -144,7 +144,9 @@
       name: escapeHtml(product.name),
       series: escapeHtml(product.series),
       image: escapeHtml(product.image),
-      imageSmall: escapeHtml(product.imageSmall || product.image)
+      imageSmall: escapeHtml(product.imageSmall || product.image),
+      images: (product.images && product.images.length ? product.images : [{ src: product.image, small: product.imageSmall || product.image }])
+        .map((photo) => ({ src: escapeHtml(photo.src), small: escapeHtml(photo.small || photo.src) }))
     };
   }
 
@@ -211,6 +213,7 @@
         <article class="product-card ${isSoldOut ? "is-sold-out" : ""}">
           <div class="product-media" data-product="${product.id}" title="Lihat detail ${product.name}">
             ${productImageTag(product)}
+            ${product.images.length > 1 ? `<span class="photo-count" aria-label="${product.images.length} foto">${product.images.length} foto</span>` : ""}
             <span class="price-badge">${shortPrice(product.price)}</span>
             <span class="status-badge">${isSoldOut ? "Sold out" : "Ready"}</span>
           </div>
@@ -767,13 +770,67 @@
     showToast.timer = window.setTimeout(() => toast.classList.remove("is-visible"), 1800);
   }
 
+  // ---------- Galeri foto (swipe) ----------
+
+  function gallerySlides(product, zoomable) {
+    const total = product.images.length;
+    return product.images.map((photo, index) => {
+      const img = `<img src="${photo.src}" width="1440" height="1920" alt="${product.name} - foto ${index + 1} dari ${total}"${index ? ' loading="lazy"' : ""} decoding="async">`;
+      return zoomable
+        ? `<button class="gallery-slide" type="button" data-zoom-index="${index}" aria-label="Perbesar foto ${index + 1} dari ${total}">${img}</button>`
+        : `<div class="gallery-slide">${img}</div>`;
+    }).join("");
+  }
+
+  function galleryMarkup(product) {
+    const total = product.images.length;
+    const controls = total > 1 ? `
+      <button class="gallery-nav is-prev" type="button" data-gallery-step="-1" aria-label="Foto sebelumnya">&lsaquo;</button>
+      <button class="gallery-nav is-next" type="button" data-gallery-step="1" aria-label="Foto berikutnya">&rsaquo;</button>
+      <div class="gallery-dots" aria-hidden="true">${product.images.map((_, index) => `<span${index ? "" : ' class="is-active"'}></span>`).join("")}</div>
+      <span class="gallery-count" aria-live="polite">1/${total}</span>` : "";
+    return `
+      <div class="gallery" data-gallery>
+        <div class="gallery-track">${gallerySlides(product, true)}</div>
+        ${controls}
+        <span class="zoom-hint">Ketuk untuk perbesar</span>
+      </div>`;
+  }
+
+  function galleryIndex(track) {
+    return track.clientWidth ? Math.round(track.scrollLeft / track.clientWidth) : 0;
+  }
+
+  // Titik indikator dan nomor foto mengikuti posisi geser.
+  function setupGallery(root) {
+    const track = root.querySelector(".gallery-track");
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const index = galleryIndex(track);
+      root.querySelectorAll(".gallery-dots span").forEach((dot, i) => dot.classList.toggle("is-active", i === index));
+      const count = root.querySelector(".gallery-count");
+      if (count) count.textContent = `${index + 1}/${track.children.length}`;
+      root.classList.toggle("is-first", index === 0);
+      root.classList.toggle("is-last", index === track.children.length - 1);
+    };
+    track.addEventListener("scroll", () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    }, { passive: true });
+    update();
+  }
+
+  function goToSlide(track, index, smooth = true) {
+    const last = track.children.length - 1;
+    const target = Math.max(0, Math.min(last, index));
+    track.scrollTo({ left: target * track.clientWidth, behavior: smooth && !reduceMotion.matches ? "smooth" : "auto" });
+  }
+
   function openProduct(raw) {
     const product = escapeProduct(raw);
+    state.dialogProduct = product;
     dialogContent.innerHTML = `
-      <button class="dialog-image-button" type="button" data-zoom="${product.image}" aria-label="Perbesar foto ${product.name}">
-        <img class="dialog-image" src="${product.image}" width="1440" height="1920" alt="${product.name} - ${product.series}" decoding="async">
-        <span class="zoom-hint">Ketuk untuk perbesar</span>
-      </button>
+      ${galleryMarkup(product)}
       <section class="dialog-details">
         <p class="eyebrow">${product.series}</p>
         <h2>${product.name}</h2>
@@ -790,6 +847,9 @@
     `;
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.setAttribute("open", "");
+    const gallery = dialogContent.querySelector("[data-gallery]");
+    gallery.querySelector(".gallery-track").scrollLeft = 0;
+    setupGallery(gallery);
   }
 
   function closeProduct() {
@@ -862,12 +922,17 @@
     if (product) openProduct(product);
   });
 
-  function openImageViewer(src, alt) {
-    imageViewerImg.src = src;
-    imageViewerImg.alt = alt;
+  function openImageViewer(product, index) {
+    imageViewerTrack.innerHTML = gallerySlides(product, false);
     if (typeof imageViewer.showModal === "function") imageViewer.showModal();
     else imageViewer.setAttribute("open", "");
+    window.requestAnimationFrame(() => {
+      goToSlide(imageViewerTrack, index, false);
+      imageViewerTrack.dispatchEvent(new Event("scroll"));
+    });
   }
+
+  setupGallery(imageViewer.querySelector("[data-gallery]"));
 
   function closeImage() {
     if (imageViewer.open && typeof imageViewer.close === "function") imageViewer.close();
@@ -880,9 +945,15 @@
   });
 
   dialog.addEventListener("click", (event) => {
-    const zoom = event.target.closest("[data-zoom]");
-    if (zoom) {
-      openImageViewer(zoom.dataset.zoom, zoom.querySelector("img").alt);
+    const step = event.target.closest("[data-gallery-step]");
+    if (step) {
+      goToSlide(step.closest("[data-gallery]").querySelector(".gallery-track"), galleryIndex(step.closest("[data-gallery]").querySelector(".gallery-track")) + Number(step.dataset.galleryStep));
+      return;
+    }
+
+    const zoom = event.target.closest("[data-zoom-index]");
+    if (zoom && state.dialogProduct) {
+      openImageViewer(state.dialogProduct, Number(zoom.dataset.zoomIndex));
       return;
     }
 
@@ -1042,6 +1113,11 @@
   });
 
   window.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      const open = imageViewer.open ? imageViewer : dialog.open ? dialog : null;
+      const track = open && open.querySelector(".gallery-track");
+      if (track) goToSlide(track, galleryIndex(track) + (event.key === "ArrowRight" ? 1 : -1));
+    }
     if (event.key === "Escape" && dialog.open) closeProduct();
   });
 

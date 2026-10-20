@@ -111,3 +111,16 @@ CREATE TABLE IF NOT EXISTS admin_users (
     last_login_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Galeri foto produk (bisa lebih dari 1, digeser/swipe di katalog).
+-- Foto pertama (sort_order terkecil) adalah sampul dan selalu disalin ke products.image.
+-- Produk tanpa baris di sini memakai products.image sebagai satu-satunya foto.
+CREATE TABLE IF NOT EXISTS product_images (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT UNSIGNED NOT NULL,
+    path VARCHAR(255) NOT NULL,
+    sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_product_images_order (product_id, sort_order),
+    CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
