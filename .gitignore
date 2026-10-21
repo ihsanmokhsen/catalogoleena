@@ -7,3 +7,6 @@ config/config.php
 
 # Foto produk hasil upload admin (backup terpisah dari git)
 public/uploads/
+
+# Proyek video promosi (HyperFrames): render & dependensi besar
+videos/
