@@ -367,7 +367,7 @@
     shippingService.disabled = true;
     setShippingStatus("Menghitung ongkir...");
     try {
-      const data = await postJson("api/shipping-rates.php", { areaId: area.id, items }, ratesController.signal);
+      const data = await postJson("/api/shipping-rates.php", { areaId: area.id, items }, ratesController.signal);
       state.shipping.rates = data.rates || [];
       setShippingStatus(state.shipping.rates.length ? `Berat paket ${(data.weightGram / 1000).toLocaleString("id-ID")} kg` : "Tidak ada kurir untuk tujuan ini");
     } catch (error) {
@@ -398,7 +398,7 @@
     areaController = new AbortController();
     renderAreaResults("<p>Mencari wilayah...</p>");
     try {
-      const response = await fetch(`api/shipping-areas.php?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`/api/shipping-areas.php?q=${encodeURIComponent(query)}`, {
         headers: { Accept: "application/json" },
         signal: areaController.signal
       });
@@ -1121,7 +1121,6 @@
     shippingService.closest("label").hidden = pickup;
     if (pickup) {
       setShippingStatus("");
-      window.open("https://www.google.com/maps?q=-10.163101,123.618319", "_blank", "noopener,noreferrer");
     }
     renderCart();
   });
