@@ -30,6 +30,7 @@ Penjelasan lebih lengkap ada di [deploy/README.md](deploy/README.md).
 
 - [ ] Website > Add site `oleena.hilmimokhsen.my.id`, pilih PHP 8.3.
 - [ ] **Site directory > Running directory: `/public`**. Ini penting supaya `config/` dan `src/` tidak bisa dibuka dari browser.
+- [ ] **Matikan `open_basedir` / 防跨站攻击** pada pengaturan situs. Jika tidak dimatikan, tambahkan root project ke daftar allowed path: `/www/wwwroot/oleena.hilmimokhsen.my.id/:/tmp/` (bukan hanya `/public/`). Endpoint PHP di `public/` perlu memuat kode dari `src/` dan konfigurasi dari `config/`.
 - [ ] SSL: Let's Encrypt, lalu aktifkan **Force HTTPS**.
 - [ ] Config: tempel isi [deploy/nginx-oleena.conf](deploy/nginx-oleena.conf), lalu sesuaikan `fastcgi_pass` dengan socket PHP 8.3 di server.
 
@@ -42,6 +43,7 @@ Penjelasan lebih lengkap ada di [deploy/README.md](deploy/README.md).
   mkdir -p /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads/products /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads/settings
   chown -R www:www /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads
   ```
+- [ ] Setelah mengubah `open_basedir`, restart/reload PHP-FPM lalu pastikan `curl -i https://oleena.hilmimokhsen.my.id/api/products.php` mengembalikan JSON, bukan warning `open_basedir restriction`.
 
 ## 5. Database dan konfigurasi
 

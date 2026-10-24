@@ -163,7 +163,7 @@ git clone <URL_REPOSITORY> oleena.hilmimokhsen.my.id
 cd /www/wwwroot/oleena.hilmimokhsen.my.id
 ```
 
-Buat situs PHP 8.3, set **Running directory** ke `/public`, aktifkan SSL/Force HTTPS, lalu terapkan `deploy/nginx-oleena.conf` dengan socket PHP-FPM yang sesuai.
+Buat situs PHP 8.3, set **Running directory** ke `/public`, aktifkan SSL/Force HTTPS, lalu terapkan `deploy/nginx-oleena.conf` dengan socket PHP-FPM yang sesuai. Pada pengaturan keamanan aaPanel, **matikan `open_basedir` / 防跨站攻击** untuk situs ini. Jika tetap diaktifkan, allowed path harus mencakup root project `/www/wwwroot/oleena.hilmimokhsen.my.id/` dan `/tmp/`, karena endpoint di `public/` memuat `src/` serta `config/`; membatasi hanya ke `public/` akan menyebabkan katalog gagal dimuat.
 
 ### PHP, upload, database, dan admin
 

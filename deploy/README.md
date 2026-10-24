@@ -32,6 +32,11 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
    ```
 5. aaPanel > Website > Add site `oleena.hilmimokhsen.my.id`, PHP 8.3. Lalu di pengaturan situs:
    - **Site directory > Running directory: `/public`**
+   - **Matikan `open_basedir` / 防跨站攻击** untuk situs ini. Jika tetap ingin mengaktifkannya, izinkan seluruh root project, bukan hanya folder `public`:
+     ```text
+     /www/wwwroot/oleena.hilmimokhsen.my.id/:/tmp/
+     ```
+     Aplikasi memerlukan akses ke `src/` dan `config/` dari endpoint yang berada di dalam `public/`.
    - SSL: Let's Encrypt, lalu aktifkan **Force HTTPS**
    - Config: tempel isi `deploy/nginx-oleena.conf` (sesuaikan `fastcgi_pass` dengan socket PHP 8.3 di server)
 6. aaPanel > App Store > PHP 8.3 > Settings:
@@ -42,6 +47,12 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
      mkdir -p /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads/products
      chown -R www:www /www/wwwroot/oleena.hilmimokhsen.my.id/public/uploads
      ```
+
+   Setelah mengubah `open_basedir`, restart/reload PHP-FPM dari aaPanel, lalu verifikasi:
+   ```bash
+   curl -i https://oleena.hilmimokhsen.my.id/api/products.php
+   ```
+   Respons harus berupa JSON. Jika muncul `open_basedir restriction`, jangan lanjut ke seed atau pengujian katalog sebelum pengaturan di atas diperbaiki.
 
 ### C. Database dan konfigurasi
 
