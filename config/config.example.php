@@ -15,13 +15,13 @@ return [
         'pass' => 'ganti-dengan-password-kuat',
     ],
     'shipping' => [
-        // Pakai key biteship_test.xxx saat uji coba, ganti biteship_live.xxx saat produksi.
-        'biteship_key' => '',
-        'base_url' => 'https://api.biteship.com',
-        // Area ID lokasi toko di Kupang, NTT. Cari dengan: php bin/find-area.php "nama kecamatan"
-        'origin_area_id' => '',
-        // Kurir yang dipakai toko: JNE, J&T Express, Lion Parcel (kode Biteship).
-        'couriers' => 'jne,jnt,lion',
+        // RajaOngkir Starter/gratis. Isi key rahasia di config/config.php.
+        'rajaongkir_key' => '',
+        'base_url' => 'https://api.rajaongkir.com/starter',
+        'origin_city_name' => 'Kota Kupang, Nusa Tenggara Timur',
+        'origin_city_id' => '',
+        // Kode kurir RajaOngkir, misalnya: jne,jnt,pos.
+        'couriers' => 'jne,jnt,pos',
         // Tambahan berat kemasan per paket (gram).
         'packaging_weight_gram' => 100,
     ],

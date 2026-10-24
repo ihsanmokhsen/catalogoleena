@@ -9,7 +9,7 @@ rate_limit('shipping-rates', 20, 60);
 
 $body = read_json_body();
 $areaId = $body['areaId'] ?? null;
-if (!is_string($areaId) || !preg_match('/^[A-Za-z0-9]{5,64}$/', $areaId)) {
+if (!is_string($areaId) || !preg_match('/^\d{1,10}$/', $areaId)) {
     json_response(['error' => 'Wilayah tujuan tidak valid.'], 422);
 }
 

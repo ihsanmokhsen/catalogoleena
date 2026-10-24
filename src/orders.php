@@ -131,7 +131,7 @@ function order_create(array $input): array
 
     $shipping = $input['shipping'] ?? [];
     $areaId = $shipping['areaId'] ?? null;
-    if (!is_string($areaId) || !preg_match('/^[A-Za-z0-9]{5,64}$/', $areaId)) {
+    if (!is_string($areaId) || !preg_match('/^\d{1,10}$/', $areaId)) {
         throw new InvalidArgumentException('Wilayah tujuan tidak valid.');
     }
     $areaName = clean_text($shipping['areaName'] ?? null, 'Nama wilayah', 3, 255);

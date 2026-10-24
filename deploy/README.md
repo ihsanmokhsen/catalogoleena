@@ -20,7 +20,7 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
 
 ### A. Akun yang perlu disiapkan
 
-1. **[akun] Biteship** (biteship.com): daftar, aktifkan **Testing Mode**, salin API key `biteship_test.xxx`.
+1. **[akun] RajaOngkir Starter**: buat/aktifkan akun, salin API key Starter, dan simpan secara rahasia. Paket Starter menggunakan tujuan kota/kabupaten.
 2. **[akun] Midtrans** (dashboard.midtrans.com): daftar, pilih environment **Sandbox**, buka Settings > Access Keys, lalu salin **Server Key** (`SB-Mid-server-xxx`).
 
 ### B. DNS dan situs
@@ -55,17 +55,17 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
    ```
    Lalu isi `config/config.php`:
    - `db.pass`: password database dari langkah 7
-   - `shipping.biteship_key`: key dari langkah 1
+   - `shipping.rajaongkir_key`: API key RajaOngkir Starter dari langkah 1
+   - `shipping.origin_city_name`: tetap `Kota Kupang, Nusa Tenggara Timur`
+   - `shipping.origin_city_id`: boleh dikosongkan agar dicari otomatis; isi ID numerik kota Kupang bila sudah diketahui
+   - `shipping.couriers`: `jne,jnt,pos`
    - `midtrans.server_key`: Server Key dari langkah 2 (`is_production` tetap `false`)
 9. Buat tabel dan impor produk:
    ```bash
    mysql -u oleena -p oleena < database/schema.sql
    php database/seed_products.php
    ```
-10. Cari Area ID lokasi toko, lalu isi ke `shipping.origin_area_id`:
-    ```bash
-    php bin/find-area.php "nama kecamatan toko"
-    ```
+10. Pastikan konfigurasi ongkir memakai kota asal Kota Kupang, bukan kecamatan atau Area ID Biteship.
 11. Buat akun admin (password minimal 12 karakter):
     ```bash
     php bin/create-admin.php oleena
@@ -99,7 +99,7 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
 ### G. Go-live
 
 18. Midtrans: ajukan aktivasi Production. Setelah disetujui, ganti `midtrans.server_key` ke key Production (`Mid-server-xxx`), set `is_production => true`, lalu daftarkan ulang Notification URL di environment Production.
-19. Biteship: matikan Testing Mode, lalu ganti `shipping.biteship_key` ke `biteship_live.xxx`.
+19. RajaOngkir Starter: pastikan `shipping.rajaongkir_key` berisi API key yang valid dan sudah di-rotate jika pernah terekspos. Tidak ada mode Testing/Live Biteship yang perlu diatur.
 20. Lakukan satu transaksi asli bernominal kecil, lalu refund dari Dashboard Midtrans.
 
 ## Update aplikasi
@@ -116,7 +116,7 @@ Foto produk hasil upload disimpan di `public/uploads/products/` dan QR pembayara
 
 ## Catatan keamanan
 
-- Kredensial (DB, Biteship, Midtrans) hanya ada di `config/config.php`, di luar webroot dan tidak ikut git.
+- Kredensial (DB, RajaOngkir, Midtrans) hanya ada di `config/config.php`, di luar webroot dan tidak ikut git.
 - Harga, berat, ongkir, dan total selalu dihitung ulang di server. Angka dari browser tidak dipakai.
 - Mode QR / transfer: status **Dibayar** diberikan admin lewat tombol "Tandai sudah dibayar" setelah dana terlihat di mutasi rekening/QRIS. Nama admin dan waktunya tercatat. Setiap pesanan punya kode unik 1-999 rupiah supaya transfer mudah dicocokkan.
 - Mode Midtrans: status **Dibayar** hanya diberikan oleh webhook Midtrans yang tanda tangannya valid, nominalnya cocok, dan sudah dikonfirmasi ulang ke Get Status API.
@@ -126,14 +126,16 @@ Foto produk hasil upload disimpan di `public/uploads/products/` dan QR pembayara
 - Foto upload dibuat ulang lewat GD (metadata dan isi tersembunyi terbuang), diberi nama acak oleh server, dan folder `uploads/` hanya melayani file `.jpg` statis.
 - Detail kegagalan API hanya dicatat di log error PHP. Pengunjung hanya melihat pesan umum.
 
-## Development lokal
+## Development lokal (legacy mock)
 
-Lokal memakai MySQL Homebrew dan server tiruan Biteship/Midtrans (`dev/mock-server.php`), jadi semua alur bisa dicoba tanpa akun asli.
+Lokal memakai MySQL Homebrew dan server tiruan lama Biteship/Midtrans (`dev/mock-server.php`).
+Mock ini bukan konfigurasi deployment dan tidak boleh dipakai sebagai API ongkir VPS. Untuk alur
+RajaOngkir, gunakan API Starter yang valid dengan `config/config.php` lokal yang tidak di-commit.
 
 1. Nyalakan MySQL: `brew services start mysql`
 2. Buat database `oleena` dan user `oleena`, lalu buat `config/config.php` dari contoh dengan:
    - `app.url` = `http://localhost:8000` dan `app.env` = `'local'`
-   - `shipping.biteship_key` = `biteship_test.mock`, `shipping.base_url` = `http://localhost:8001`
+   - konfigurasi `shipping` mengikuti RajaOngkir Starter; jangan menyalin key ke repository
    - `midtrans.server_key` = `SB-Mid-server-mock`, ditambah `snap_url` = `http://localhost:8001/snap/v1/transactions` dan `api_url` = `http://localhost:8001`
 3. Isi database:
    ```bash
