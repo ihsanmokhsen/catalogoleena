@@ -49,6 +49,8 @@
   const checkoutName = document.querySelector("#checkoutName");
   const checkoutPhone = document.querySelector("#checkoutPhone");
   const checkoutAddress = document.querySelector("#checkoutAddress");
+  const shippingMethod = document.querySelector("#shippingMethod");
+  const pickupHint = document.querySelector("#pickupHint");
   const checkoutArea = document.querySelector("#checkoutArea");
   const areaResults = document.querySelector("#areaResults");
   const shippingService = document.querySelector("#shippingService");
@@ -298,6 +300,7 @@
   }
 
   function parseShippingValue() {
+    if (shippingMethod.value === "pickup") return 0;
     const rate = getSelectedRate();
     return rate ? rate.price : 0;
   }
@@ -568,6 +571,7 @@
       <dl class="order-summary">
         <div><dt>Tujuan</dt><dd>${escapeHtml(order.areaName)}</dd></div>
         <div><dt>Kurir</dt><dd>${escapeHtml(order.courier)}</dd></div>
+        ${order.courier === "Ambil di tempat" ? '<div><dt>Alamat toko</dt><dd><a href="https://www.google.com/maps?q=-10.163101,123.618319" target="_blank" rel="noreferrer">Buka di Google Maps</a></dd></div>' : ""}
         <div><dt>Subtotal</dt><dd>${formatPrice(order.subtotal)}</dd></div>
         <div><dt>Ongkir</dt><dd>${formatPrice(order.shippingCost)}</dd></div>
         <div class="is-total"><dt>Total bayar</dt><dd>${formatPrice(order.total)}</dd></div>
@@ -650,7 +654,8 @@
 
   async function submitOrder() {
     if (state.submitting) return;
-    const rate = getSelectedRate();
+    const pickup = shippingMethod.value === "pickup";
+    const rate = pickup ? null : getSelectedRate();
     state.submitting = true;
     state.idempotencyKey = state.idempotencyKey || crypto.randomUUID();
     checkoutCart.textContent = "Memproses...";
@@ -664,7 +669,9 @@
           address: checkoutAddress.value,
           note: checkoutNote.value
         },
-        shipping: { areaId: state.shipping.area.id, areaName: state.shipping.area.name, rateKey: rate.key },
+        shipping: pickup
+          ? { method: "pickup" }
+          : { method: "delivery", areaId: state.shipping.area.id, areaName: state.shipping.area.name, rateKey: rate.key },
         items: Array.from(state.cart.entries()).map(([id, qty]) => ({ id, qty }))
       });
       saveOrderToken(data.order.code, data.accessToken);
@@ -795,11 +802,10 @@
     const subtotal = getCartTotal();
     const shipping = parseShippingValue();
     const grandTotal = subtotal + shipping;
+    const pickup = shippingMethod.value === "pickup";
     const hasCustomerData = checkoutName.value.trim()
       && checkoutPhone.value.trim()
-      && checkoutAddress.value.trim()
-      && state.shipping.area
-      && getSelectedRate();
+      && (pickup || (checkoutAddress.value.trim() && state.shipping.area && getSelectedRate()));
 
     cartCount.textContent = itemCount;
     mobileCartSummary.textContent = `${itemCount} item - ${formatPrice(grandTotal)}`;
@@ -1107,6 +1113,19 @@
     });
   });
 
+  shippingMethod.addEventListener("change", () => {
+    const pickup = shippingMethod.value === "pickup";
+    pickupHint.hidden = !pickup;
+    checkoutAddress.required = !pickup;
+    checkoutArea.closest(".area-field").hidden = pickup;
+    shippingService.closest("label").hidden = pickup;
+    if (pickup) {
+      setShippingStatus("");
+      window.open("https://www.google.com/maps?q=-10.163101,123.618319", "_blank", "noopener,noreferrer");
+    }
+    renderCart();
+  });
+
   shippingService.addEventListener("change", renderCart);
 
   checkoutArea.addEventListener("input", () => {
@@ -1148,7 +1167,7 @@
 
   checkoutCart.addEventListener("click", () => {
     if (checkoutCart.getAttribute("aria-disabled") === "true") {
-      if (!state.submitting) showToast("Lengkapi data penerima, tujuan, dan kurir terlebih dahulu");
+      if (!state.submitting) showToast("Lengkapi data penerima dan pilihan pengiriman terlebih dahulu");
       return;
     }
     submitOrder();

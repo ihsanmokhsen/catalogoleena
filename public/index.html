@@ -138,6 +138,16 @@
               <span>Alamat lengkap</span>
               <textarea id="checkoutAddress" rows="2" placeholder="Jalan, RT/RW, kelurahan, kecamatan"></textarea>
             </label>
+            <label class="wide">
+              <span>Metode pengambilan</span>
+              <select id="shippingMethod">
+                <option value="delivery">Dikirim ke alamat</option>
+                <option value="pickup">Ambil di tempat</option>
+              </select>
+              <small id="pickupHint" class="field-hint" hidden>
+                Pesanan diambil di toko. <a href="https://www.google.com/maps?q=-10.163101,123.618319" target="_blank" rel="noreferrer">Buka alamat toko di Google Maps</a>
+              </small>
+            </label>
             <div class="wide area-field">
               <label for="checkoutArea"><span>Kota / Kabupaten tujuan</span></label>
               <input id="checkoutArea" type="search" autocomplete="off" placeholder="Ketik min. 3 huruf, contoh: Kupang" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="areaResults">

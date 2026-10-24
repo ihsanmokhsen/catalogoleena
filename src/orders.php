@@ -126,32 +126,45 @@ function order_create(array $input): array
     $customer = $input['customer'] ?? [];
     $name = clean_text($customer['name'] ?? null, 'Nama penerima', 2, 120);
     $phone = normalize_phone($customer['phone'] ?? null);
-    $address = clean_text($customer['address'] ?? null, 'Alamat', 10, 500, true);
     $note = clean_text($customer['note'] ?? '', 'Catatan', 0, 500);
 
     $shipping = $input['shipping'] ?? [];
-    $areaId = $shipping['areaId'] ?? null;
-    if (!is_string($areaId) || !preg_match('/^\d{1,10}$/', $areaId)) {
-        throw new InvalidArgumentException('Wilayah tujuan tidak valid.');
-    }
-    $areaName = clean_text($shipping['areaName'] ?? null, 'Nama wilayah', 3, 255);
-    $rateKey = $shipping['rateKey'] ?? null;
-    if (!is_string($rateKey) || !preg_match('/^[a-z0-9_-]{1,40}:[a-z0-9_-]{1,60}$/', $rateKey)) {
-        throw new InvalidArgumentException('Pilih kurir terlebih dahulu.');
-    }
-
     $package = shipping_package_from_cart($input['items'] ?? []);
-    $rate = null;
-    foreach (shipping_rates($areaId, $package) as $candidate) {
-        if ($candidate['key'] === $rateKey) {
-            $rate = $candidate;
-            break;
+    $shippingMethod = $shipping['method'] ?? 'delivery';
+    if ($shippingMethod === 'pickup') {
+        $address = clean_text(!empty($customer['address']) ? $customer['address'] : 'Ambil di tempat', 'Alamat', 10, 500, true);
+        $areaId = 'pickup';
+        $areaName = 'Ambil di tempat';
+        $courierCode = 'pickup';
+        $serviceCode = 'pickup';
+        $courierLabel = 'Ambil di tempat';
+        $rate = ['price' => 0];
+    } elseif ($shippingMethod === 'delivery') {
+        $address = clean_text($customer['address'] ?? null, 'Alamat', 10, 500, true);
+        $areaId = $shipping['areaId'] ?? null;
+        if (!is_string($areaId) || !preg_match('/^\d{1,10}$/', $areaId)) {
+            throw new InvalidArgumentException('Wilayah tujuan tidak valid.');
         }
+        $areaName = clean_text($shipping['areaName'] ?? null, 'Nama wilayah', 3, 255);
+        $rateKey = $shipping['rateKey'] ?? null;
+        if (!is_string($rateKey) || !preg_match('/^[a-z0-9_-]{1,40}:[a-z0-9_-]{1,60}$/', $rateKey)) {
+            throw new InvalidArgumentException('Pilih kurir terlebih dahulu.');
+        }
+        $rate = null;
+        foreach (shipping_rates($areaId, $package) as $candidate) {
+            if ($candidate['key'] === $rateKey) {
+                $rate = $candidate;
+                break;
+            }
+        }
+        if ($rate === null) {
+            throw new InvalidArgumentException('Tarif kurir sudah berubah, silakan pilih ulang kurir.');
+        }
+        [$courierCode, $serviceCode] = explode(':', $rateKey, 2);
+        $courierLabel = $rate['courierName'] . ' ' . $rate['serviceName'];
+    } else {
+        throw new InvalidArgumentException('Metode pengiriman tidak valid.');
     }
-    if ($rate === null) {
-        throw new InvalidArgumentException('Tarif kurir sudah berubah, silakan pilih ulang kurir.');
-    }
-    [$courierCode, $serviceCode] = explode(':', $rateKey, 2);
 
     $subtotal = $package['value'];
     $method = payment_mode();
@@ -183,7 +196,7 @@ function order_create(array $input): array
                 'area_name' => $areaName,
                 'courier' => $courierCode,
                 'service' => $serviceCode,
-                'courier_label' => $rate['courierName'] . ' ' . $rate['serviceName'],
+                'courier_label' => $courierLabel,
                 'weight' => $package['weight'],
                 'subtotal' => $subtotal,
                 'shipping' => $rate['price'],
