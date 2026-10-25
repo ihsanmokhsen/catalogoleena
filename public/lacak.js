@@ -117,6 +117,7 @@
       <dl class="order-summary">
         <div><dt>Tujuan</dt><dd>${escapeHtml(order.areaName)}</dd></div>
         <div><dt>Kurir</dt><dd>${escapeHtml(order.courier)}</dd></div>
+        ${order.discount ? `<div><dt>Voucher ${escapeHtml(order.voucherCode)}</dt><dd>-${formatPrice(order.discount)}</dd></div>` : ""}
         <div><dt>Ongkir</dt><dd>${formatPrice(order.shippingCost)}</dd></div>
         <div class="is-total"><dt>Total</dt><dd>${formatPrice(order.total)}</dd></div>
       </dl>

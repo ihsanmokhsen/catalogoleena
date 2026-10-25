@@ -119,7 +119,11 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
 cd /www/wwwroot/oleena.hilmimokhsen.my.id
 git pull
 mysql -u oleena -p oleena < database/schema.sql   # aman diulang, tabel yang ada tidak ditimpa
+php bin/migrate.php                                # tambah kolom baru ke tabel lama, aman diulang
 ```
+
+Bila `styles.css`, `script.js`, atau `lacak.js` berubah, naikkan angka `?v=` di `public/index.html` dan `public/lacak.html`
+supaya browser pembeli langsung memakai versi baru (file statis di-cache 12 jam).
 
 ## Backup
 

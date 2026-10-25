@@ -11,7 +11,10 @@
     shipping: { area: null, areas: [], rates: [] },
     order: null,
     submitting: false,
-    idempotencyKey: null
+    idempotencyKey: null,
+    // Voucher yang berhasil dicek: { code, label, type, value, minSubtotal, maxDiscount }.
+    voucher: null,
+    voucherCheckedSubtotal: null
   };
 
   const seriesFilters = document.querySelector("#seriesFilters");
@@ -56,6 +59,13 @@
   const shippingService = document.querySelector("#shippingService");
   const shippingStatus = document.querySelector("#shippingStatus");
   const checkoutNote = document.querySelector("#checkoutNote");
+  const voucherCode = document.querySelector("#voucherCode");
+  const applyVoucher = document.querySelector("#applyVoucher");
+  const voucherStatus = document.querySelector("#voucherStatus");
+  const cartDiscountRow = document.querySelector("#cartDiscountRow");
+  const cartDiscountLabel = document.querySelector("#cartDiscountLabel");
+  const cartDiscount = document.querySelector("#cartDiscount");
+  const checkoutErrors = document.querySelector("#checkoutErrors");
   const mobileCartBar = document.querySelector("#mobileCartBar");
   const mobileCartSummary = document.querySelector("#mobileCartSummary");
   const pageLoaderOverlay = document.querySelector("#pageLoaderOverlay");
@@ -420,6 +430,7 @@
     state.shipping.area = area;
     checkoutArea.value = area.name;
     closeAreaResults();
+    revalidateField(checkoutArea);
     refreshRates();
   }
 
@@ -488,6 +499,7 @@
       ...order.items.map((item, index) => `${index + 1}. ${item.name} - ${item.series}, ${item.qty} x ${formatPrice(item.unitPrice)} = ${formatPrice(item.lineTotal)}`),
       "",
       `Subtotal: ${formatPrice(order.subtotal)}`,
+      ...(order.discount ? [`Voucher ${order.voucherCode}: -${formatPrice(order.discount)}`] : []),
       pickup ? "Pengiriman: Ambil di tempat" : `Ongkir (${order.courier}): ${formatPrice(order.shippingCost)}`,
       ...(order.uniqueCode ? [`Kode unik: ${formatPrice(order.uniqueCode)}`] : []),
       `Total: ${formatPrice(order.total)}`,
@@ -634,6 +646,7 @@
         <ul class="order-lines">${items}</ul>
         <dl class="order-summary">
           <div><dt>Subtotal (${itemCount} barang)</dt><dd>${formatPrice(order.subtotal)}</dd></div>
+          ${order.discount ? `<div class="is-discount"><dt>Voucher ${escapeHtml(order.voucherCode)}</dt><dd>-${formatPrice(order.discount)}</dd></div>` : ""}
           <div><dt>${pickup ? "Ambil di tempat" : "Ongkir"}</dt><dd>${pickup ? "Gratis" : formatPrice(order.shippingCost)}</dd></div>
           ${order.uniqueCode ? `<div><dt>Kode unik</dt><dd>${formatPrice(order.uniqueCode)}</dd></div>` : ""}
           <div class="is-total"><dt>Total bayar</dt><dd>${formatPrice(order.total)}</dd></div>
@@ -766,7 +779,8 @@
         shipping: pickup
           ? { method: "pickup" }
           : { method: "delivery", areaId: state.shipping.area.id, areaName: state.shipping.area.name, rateKey: rate.key },
-        items: Array.from(state.cart.entries()).map(([id, qty]) => ({ id, qty }))
+        items: Array.from(state.cart.entries()).map(([id, qty]) => ({ id, qty })),
+        voucherCode: state.voucher && voucherDiscount(getCartTotal()) > 0 ? state.voucher.code : ""
       });
       saveOrderToken(data.order.code, data.accessToken);
       state.order = data.order;
@@ -778,9 +792,13 @@
         console.warn(error);
       }
       checkoutNote.value = "";
+      state.voucher = null;
+      voucherCode.value = "";
+      setVoucherStatus("");
+      showCheckoutErrors([]);
       syncAllProductCartButtons();
     } catch (error) {
-      showToast(error.message);
+      showServerError(error.message);
       if (/kurir/i.test(error.message)) refreshRates();
     } finally {
       state.submitting = false;
@@ -896,16 +914,199 @@
     showToast("Keranjang dikosongkan");
   }
 
+  // ---------- Voucher ----------
+
+  function voucherDiscount(subtotal) {
+    const voucher = state.voucher;
+    if (!voucher || subtotal < voucher.minSubtotal) return 0;
+    let discount = voucher.type === "percent" ? Math.floor(subtotal * voucher.value / 100) : voucher.value;
+    if (voucher.type === "percent" && voucher.maxDiscount > 0) discount = Math.min(discount, voucher.maxDiscount);
+    return Math.max(0, Math.min(discount, subtotal));
+  }
+
+  function setVoucherStatus(message, isError = false) {
+    voucherStatus.textContent = message;
+    voucherStatus.classList.toggle("is-error", isError);
+    voucherCode.setAttribute("aria-invalid", isError ? "true" : "false");
+  }
+
+  function renderVoucherStatus(subtotal) {
+    const voucher = state.voucher;
+    applyVoucher.textContent = voucher ? "Hapus" : "Pakai";
+    voucherCode.readOnly = Boolean(voucher);
+    if (!voucher) {
+      // Pesan gagal lama (mis. kurang dari minimal belanja) tidak berlaku lagi setelah isi keranjang berubah.
+      if (state.voucherCheckedSubtotal !== null && state.voucherCheckedSubtotal !== subtotal && voucherStatus.classList.contains("is-error")) {
+        state.voucherCheckedSubtotal = null;
+        setVoucherStatus("Isi keranjang berubah. Tekan Pakai untuk cek voucher lagi.");
+      }
+      return;
+    }
+    if (subtotal < voucher.minSubtotal) {
+      setVoucherStatus(`Voucher ${voucher.code} berlaku untuk belanja minimal ${formatPrice(voucher.minSubtotal)}. Tambah ${formatPrice(voucher.minSubtotal - subtotal)} lagi supaya potongan berlaku.`, true);
+    } else {
+      setVoucherStatus(`Voucher ${voucher.code} dipakai: ${voucher.label}. Hemat ${formatPrice(voucherDiscount(subtotal))}.`);
+    }
+  }
+
+  function removeVoucher(message = "") {
+    state.voucher = null;
+    voucherCode.value = "";
+    setVoucherStatus(message, Boolean(message));
+    renderCart();
+  }
+
+  async function checkVoucher() {
+    if (state.voucher) {
+      removeVoucher();
+      return;
+    }
+    const code = voucherCode.value.trim().toUpperCase();
+    if (code.length < 3) {
+      setVoucherStatus("Ketik kode voucher dulu, minimal 3 huruf.", true);
+      voucherCode.focus();
+      return;
+    }
+    applyVoucher.disabled = true;
+    setVoucherStatus("Mengecek voucher...");
+    try {
+      const data = await postJson("api/voucher.php", {
+        code,
+        phone: checkoutPhone.value,
+        items: Array.from(state.cart.entries()).map(([id, qty]) => ({ id, qty }))
+      });
+      state.voucher = data.voucher;
+      voucherCode.value = data.voucher.code;
+    } catch (error) {
+      state.voucher = null;
+      state.voucherCheckedSubtotal = getCartTotal();
+      setVoucherStatus(error.message, true);
+    } finally {
+      applyVoucher.disabled = false;
+      renderCart();
+    }
+  }
+
+  // ---------- Validasi data pembeli ----------
+  // Aturan sama dengan server (src/orders.php), dengan pesan yang menjelaskan cara memperbaikinya.
+
+  function fieldError(field) {
+    const id = `${field.id}Error`;
+    let element = document.getElementById(id);
+    if (!element) {
+      element = document.createElement("small");
+      element.id = id;
+      element.className = "field-error";
+      element.hidden = true;
+      (field.closest("label") || field.closest(".area-field")).append(element);
+    }
+    return element;
+  }
+
+  function setFieldError(field, message) {
+    const element = fieldError(field);
+    element.textContent = message || "";
+    element.hidden = !message;
+    field.setAttribute("aria-invalid", message ? "true" : "false");
+    if (message) field.setAttribute("aria-describedby", element.id);
+  }
+
+  function phoneProblem(value) {
+    const raw = value.replace(/[\s.()-]/g, "");
+    if (!raw) return "Nomor WhatsApp belum diisi. Contoh: 081234567890.";
+    if (!/^\+?\d+$/.test(raw)) return "Nomor WhatsApp hanya boleh berisi angka. Contoh: 081234567890.";
+    const match = raw.match(/^(?:\+62|62|0)(\d*)$/);
+    if (!match) return "Nomor WhatsApp harus diawali 08 atau +62. Contoh: 081234567890.";
+    if (!match[1].startsWith("8")) return "Gunakan nomor HP (diawali 08), bukan nomor telepon rumah. Contoh: 081234567890.";
+    const digits = match[1].length + 1;
+    if (digits < 10) return `Nomor WhatsApp terlalu pendek (baru ${digits} angka). Nomor HP biasanya 10-13 angka, contoh: 081234567890.`;
+    if (digits > 14) return `Nomor WhatsApp terlalu panjang (${digits} angka). Periksa lagi, mungkin ada angka yang dobel.`;
+    return "";
+  }
+
+  function addressProblem(value) {
+    const text = value.trim().replace(/\s+/g, " ");
+    const example = "Contoh: Jl. Melati No. 5, RT 02/RW 01, Oebobo.";
+    if (!text) return `Alamat belum diisi. Tulis nama jalan, nomor rumah, RT/RW, dan kelurahan. ${example}`;
+    if (text.length < 15) return `Alamat terlalu pendek, kurir bisa salah antar. Tulis lengkap: nama jalan, nomor rumah, RT/RW, dan kelurahan. ${example}`;
+    if (text.length > 500) return "Alamat terlalu panjang (maksimal 500 huruf).";
+    return "";
+  }
+
+  function checkoutProblems() {
+    const pickup = shippingMethod.value === "pickup";
+    const name = checkoutName.value.trim();
+    const problems = [
+      [checkoutName, !name ? "Nama penerima belum diisi." : name.length < 2 ? "Nama penerima terlalu pendek, tulis nama lengkap." : ""],
+      [checkoutPhone, phoneProblem(checkoutPhone.value)]
+    ];
+    if (!pickup) {
+      problems.push([checkoutAddress, addressProblem(checkoutAddress.value)]);
+      problems.push([checkoutArea, state.shipping.area ? "" : checkoutArea.value.trim()
+        ? "Wilayah belum dipilih. Ketik nama kecamatan/kota, lalu ketuk salah satu pilihan di daftar."
+        : "Wilayah tujuan belum diisi. Ketik nama kecamatan/kota, lalu pilih dari daftar."]);
+      if (state.shipping.area) problems.push([shippingService, getSelectedRate() ? "" : "Pilih kurir pengiriman."]);
+    }
+    return problems;
+  }
+
+  function showCheckoutErrors(messages) {
+    checkoutErrors.hidden = messages.length === 0;
+    checkoutErrors.innerHTML = messages.length ? `
+      <strong>Pesanan belum bisa dibuat.</strong>
+      ${messages.length > 1 ? "<span>Perbaiki isian yang ditandai merah:</span>" : ""}
+      <ul>${messages.map((message) => `<li>${escapeHtml(message)}</li>`).join("")}</ul>` : "";
+  }
+
+  // Tampilkan semua kesalahan sekaligus, lalu arahkan ke kolom pertama yang perlu diperbaiki.
+  function validateCheckout() {
+    const problems = checkoutProblems();
+    problems.forEach(([field, message]) => setFieldError(field, message));
+    const failed = problems.filter(([, message]) => message);
+    showCheckoutErrors(failed.map(([, message]) => message));
+    if (failed.length) {
+      const first = failed[0][0];
+      first.scrollIntoView({ block: "center" });
+      first.focus({ preventScroll: true });
+    }
+    return failed.length === 0;
+  }
+
+  // Kesalahan dari server ditampilkan di kolom yang bersangkutan bila bisa dikenali.
+  function showServerError(message) {
+    const target = /voucher/i.test(message) ? null
+      : /whatsapp/i.test(message) ? checkoutPhone
+      : /alamat/i.test(message) ? checkoutAddress
+      : /nama penerima/i.test(message) ? checkoutName
+      : /wilayah/i.test(message) ? checkoutArea
+      : /kurir/i.test(message) ? shippingService
+      : null;
+    if (/voucher/i.test(message)) {
+      state.voucher = null;
+      setVoucherStatus(message, true);
+      renderCart();
+    }
+    if (target) setFieldError(target, message);
+    showCheckoutErrors([message]);
+    checkoutErrors.scrollIntoView({ block: "center" });
+  }
+
+  // Kesalahan yang sudah ditandai hilang begitu kolomnya diperbaiki.
+  function revalidateField(field) {
+    if (field.getAttribute("aria-invalid") !== "true") return;
+    const problem = checkoutProblems().find(([candidate]) => candidate === field);
+    setFieldError(field, problem ? problem[1] : "");
+    const remaining = checkoutProblems().filter(([candidate, message]) => message && candidate.getAttribute("aria-invalid") === "true");
+    showCheckoutErrors(remaining.map(([, message]) => message));
+  }
+
   function renderCart() {
     const items = getCartProducts();
     const itemCount = getCartItemCount();
     const subtotal = getCartTotal();
     const shipping = parseShippingValue();
-    const grandTotal = subtotal + shipping;
-    const pickup = shippingMethod.value === "pickup";
-    const hasCustomerData = checkoutName.value.trim()
-      && checkoutPhone.value.trim()
-      && (pickup || (checkoutAddress.value.trim() && state.shipping.area && getSelectedRate()));
+    const discount = voucherDiscount(subtotal);
+    const grandTotal = subtotal - discount + shipping;
 
     cartCount.textContent = itemCount;
     mobileCartSummary.textContent = `${itemCount} item - ${formatPrice(grandTotal)}`;
@@ -916,8 +1117,13 @@
     clearCart.disabled = items.length === 0;
     cartSubtotal.textContent = formatPrice(subtotal);
     cartShipping.textContent = formatPrice(shipping);
+    cartDiscountRow.hidden = discount === 0;
+    if (state.voucher) cartDiscountLabel.textContent = `Voucher ${state.voucher.code}`;
+    cartDiscount.textContent = `-${formatPrice(discount)}`;
     cartTotal.textContent = formatPrice(grandTotal);
-    checkoutCart.setAttribute("aria-disabled", items.length === 0 || !hasCustomerData || state.submitting ? "true" : "false");
+    renderVoucherStatus(subtotal);
+    // Data yang belum lengkap tidak mengunci tombol: saat ditekan, kolom yang salah ditandai dengan penjelasan.
+    checkoutCart.setAttribute("aria-disabled", items.length === 0 || state.submitting ? "true" : "false");
 
     cartItems.innerHTML = items.map(escapeProduct).map((product) => `
       <article class="cart-item">
@@ -957,10 +1163,13 @@
   }
 
   function showToast(message) {
+    // Dialog modal berada di lapisan paling atas, jadi toast dipindah ke dalam dialog yang sedang terbuka supaya terlihat.
+    const host = document.querySelector("dialog[open]") || document.body;
+    if (toast.parentElement !== host) host.append(toast);
     toast.textContent = message;
     toast.classList.add("is-visible");
     window.clearTimeout(showToast.timer);
-    showToast.timer = window.setTimeout(() => toast.classList.remove("is-visible"), 1800);
+    showToast.timer = window.setTimeout(() => toast.classList.remove("is-visible"), Math.min(6000, Math.max(1800, message.length * 60)));
   }
 
   // ---------- Galeri foto (swipe) ----------
@@ -1209,7 +1418,17 @@
 
   [checkoutName, checkoutPhone, checkoutAddress, checkoutNote].forEach((field) => {
     field.addEventListener("input", () => {
+      revalidateField(field);
       renderCart();
+    });
+  });
+
+  // Nomor dan alamat langsung dicek begitu pembeli selesai mengisi, supaya salah ketik ketahuan lebih awal.
+  [[checkoutPhone, phoneProblem], [checkoutAddress, addressProblem]].forEach(([field, problem]) => {
+    field.addEventListener("blur", () => {
+      if (!field.value.trim()) return;
+      if (field === checkoutAddress && shippingMethod.value === "pickup") return;
+      setFieldError(field, problem(field.value));
     });
   });
 
@@ -1221,11 +1440,16 @@
     shippingService.closest("label").hidden = pickup;
     if (pickup) {
       setShippingStatus("");
+      [checkoutAddress, checkoutArea, shippingService].forEach((field) => setFieldError(field, ""));
+      showCheckoutErrors([]);
     }
     renderCart();
   });
 
-  shippingService.addEventListener("change", renderCart);
+  shippingService.addEventListener("change", () => {
+    revalidateField(shippingService);
+    renderCart();
+  });
 
   checkoutArea.addEventListener("input", () => {
     const query = checkoutArea.value.trim();
@@ -1266,10 +1490,21 @@
 
   checkoutCart.addEventListener("click", () => {
     if (checkoutCart.getAttribute("aria-disabled") === "true") {
-      if (!state.submitting) showToast("Lengkapi data penerima dan pilihan pengiriman terlebih dahulu");
+      if (!state.submitting) showCheckoutErrors(["Keranjang masih kosong. Pilih produk dari katalog dulu."]);
       return;
     }
-    submitOrder();
+    if (validateCheckout()) submitOrder();
+  });
+
+  applyVoucher.addEventListener("click", checkVoucher);
+  voucherCode.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      checkVoucher();
+    }
+  });
+  voucherCode.addEventListener("input", () => {
+    if (!state.voucher && voucherStatus.classList.contains("is-error")) setVoucherStatus("");
   });
 
   orderPanel.addEventListener("click", (event) => {

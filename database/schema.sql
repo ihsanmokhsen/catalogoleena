@@ -55,7 +55,10 @@ CREATE TABLE IF NOT EXISTS orders (
     shipping_cost INT UNSIGNED NOT NULL,
     -- Kode unik 1-999 rupiah (pembayaran manual) supaya transfer mudah dicocokkan di mutasi rekening.
     unique_code SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-    -- total = subtotal + shipping_cost + unique_code
+    -- Voucher yang dipakai (kodenya disalin saat order dibuat) dan potongannya. Potongan hanya dari subtotal produk.
+    voucher_code VARCHAR(30) NULL,
+    discount INT UNSIGNED NOT NULL DEFAULT 0,
+    -- total = subtotal - discount + shipping_cost + unique_code
     total INT UNSIGNED NOT NULL,
     payment_method ENUM('manual', 'midtrans') NOT NULL DEFAULT 'manual',
     -- Admin yang menandai pesanan sudah dibayar (pembayaran manual).
@@ -70,7 +73,8 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_orders_status (status, created_at),
-    INDEX idx_orders_expiry (status, expires_at)
+    INDEX idx_orders_expiry (status, expires_at),
+    INDEX idx_orders_voucher (voucher_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Nama dan harga produk disalin saat order dibuat, supaya riwayat tidak berubah bila katalog diedit.
@@ -140,4 +144,28 @@ CREATE TABLE IF NOT EXISTS settings (
     name VARCHAR(60) NOT NULL PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Voucher diskon, dikelola dari Admin > Voucher.
+-- Pemakaian dihitung dari pesanan yang masih berlaku (bukan dibatalkan/kedaluwarsa).
+-- Database lama: jalankan php bin/migrate.php untuk menambah kolom voucher di tabel orders.
+CREATE TABLE IF NOT EXISTS vouchers (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(30) NOT NULL UNIQUE,
+    description VARCHAR(120) NULL,
+    type ENUM('percent', 'fixed') NOT NULL,
+    -- percent: 1-100 (persen); fixed: potongan dalam rupiah.
+    value INT UNSIGNED NOT NULL,
+    min_subtotal INT UNSIGNED NOT NULL DEFAULT 0,
+    -- Batas potongan untuk voucher persen (0 = tanpa batas).
+    max_discount INT UNSIGNED NOT NULL DEFAULT 0,
+    -- Kuota total pemakaian (NULL = tanpa batas).
+    usage_limit INT UNSIGNED NULL,
+    once_per_customer TINYINT(1) NOT NULL DEFAULT 0,
+    -- Rentang tanggal berlaku, termasuk tanggal awal dan akhir (NULL = tanpa batas).
+    starts_at DATE NULL,
+    ends_at DATE NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NULL ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

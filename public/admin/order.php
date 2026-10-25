@@ -135,6 +135,9 @@ admin_header($order['order_code'], $admin);
         </tbody>
         <tfoot>
           <tr><td colspan="3">Subtotal</td><td><?= rupiah($order['subtotal']) ?></td></tr>
+<?php if ((int) $order['discount'] > 0): ?>
+          <tr><td colspan="3">Voucher <?= h($order['voucher_code']) ?></td><td>-<?= rupiah($order['discount']) ?></td></tr>
+<?php endif; ?>
           <tr><td colspan="3">Ongkir</td><td><?= rupiah($order['shipping_cost']) ?></td></tr>
 <?php if ((int) $order['unique_code'] > 0): ?>
           <tr><td colspan="3">Kode unik</td><td><?= rupiah($order['unique_code']) ?></td></tr>

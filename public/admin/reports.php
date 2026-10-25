@@ -31,7 +31,7 @@ function query_all(string $sql, array $params): array
 if (($_GET['export'] ?? '') === 'csv') {
     $rows = query_all(
         'SELECT order_code, paid_at, status, customer_name, customer_phone, destination_area_name, courier_label,
-                subtotal, shipping_cost, total, tracking_number
+                subtotal, voucher_code, discount, shipping_cost, total, tracking_number
          FROM orders WHERE status IN ' . SOLD_STATUSES . ' AND paid_at >= ? AND paid_at < ? ORDER BY paid_at',
         [$start, $end]
     );
@@ -41,7 +41,7 @@ if (($_GET['export'] ?? '') === 'csv') {
     fwrite($out, "\xEF\xBB\xBF"); // BOM agar Excel membaca UTF-8
     // Cegah "CSV injection": sel yang diawali =, +, -, @ diberi tanda kutip agar tidak dijalankan sebagai rumus.
     $safe = fn ($value) => is_string($value) && preg_match('/^[=+\-@\t\r]/', $value) ? "'" . $value : $value;
-    fputcsv($out, ['Kode', 'Dibayar', 'Status', 'Nama', 'WhatsApp', 'Tujuan', 'Kurir', 'Subtotal', 'Ongkir', 'Total', 'Resi'], ';');
+    fputcsv($out, ['Kode', 'Dibayar', 'Status', 'Nama', 'WhatsApp', 'Tujuan', 'Kurir', 'Subtotal', 'Voucher', 'Diskon', 'Ongkir', 'Total', 'Resi'], ';');
     foreach ($rows as $row) {
         fputcsv($out, array_map($safe, array_values($row)), ';');
     }
@@ -51,7 +51,7 @@ if (($_GET['export'] ?? '') === 'csv') {
 // ---------- Ringkasan ----------
 $summary = function (string $from, string $to): array {
     $row = query_all(
-        'SELECT COUNT(*) orders, COALESCE(SUM(subtotal), 0) revenue, COALESCE(SUM(shipping_cost), 0) shipping,
+        'SELECT COUNT(*) orders, COALESCE(SUM(subtotal - discount), 0) revenue, COALESCE(SUM(shipping_cost), 0) shipping,
                 COALESCE(SUM(total), 0) total,
                 (SELECT COALESCE(SUM(oi.qty), 0) FROM order_items oi JOIN orders o2 ON o2.id = oi.order_id
                   WHERE o2.status IN ' . SOLD_STATUSES . ' AND o2.paid_at >= ? AND o2.paid_at < ?) items
@@ -77,7 +77,7 @@ function change_badge(int $now, int $before): string
 // Penjualan per hari (semua hari di bulan itu, termasuk yang 0).
 $daily = array_fill(1, (int) date('t', strtotime($start)), ['revenue' => 0, 'orders' => 0]);
 foreach (query_all(
-    'SELECT DAY(paid_at) d, SUM(subtotal) revenue, COUNT(*) orders FROM orders
+    'SELECT DAY(paid_at) d, SUM(subtotal - discount) revenue, COUNT(*) orders FROM orders
      WHERE status IN ' . SOLD_STATUSES . ' AND paid_at >= ? AND paid_at < ? GROUP BY DAY(paid_at)',
     [$start, $end]
 ) as $row) {
@@ -134,7 +134,7 @@ admin_header('Laporan penjualan', $admin);
         <a class="button-link" href="/admin/reports.php?month=<?= h($month) ?>&amp;export=csv">Unduh CSV</a>
       </form>
     </div>
-    <p class="hint">Dihitung dari pesanan yang dibayar pada <?= h($monthLabel($month)) ?> dan tidak dibatalkan. Pendapatan produk belum termasuk ongkir.</p>
+    <p class="hint">Dihitung dari pesanan yang dibayar pada <?= h($monthLabel($month)) ?> dan tidak dibatalkan. Pendapatan produk belum termasuk ongkir dan sudah dikurangi diskon voucher.</p>
 
     <section class="stat-grid" aria-label="Ringkasan <?= h($monthLabel($month)) ?>">
       <div class="stat"><span>Pendapatan produk</span><strong><?= rupiah($current['revenue']) ?></strong><?= change_badge($current['revenue'], $previous['revenue']) ?></div>

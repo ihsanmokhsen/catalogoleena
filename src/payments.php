@@ -120,6 +120,15 @@ function payment_start(array $order): string
         'price' => (int) $order['shipping_cost'],
         'quantity' => 1,
     ];
+    // Midtrans mensyaratkan jumlah item_details sama dengan gross_amount, jadi potongan voucher ditulis sebagai item negatif.
+    if ((int) $order['discount'] > 0) {
+        $items[] = [
+            'id' => 'VOUCHER',
+            'name' => mb_substr('Voucher ' . $order['voucher_code'], 0, 50),
+            'price' => -(int) $order['discount'],
+            'quantity' => 1,
+        ];
+    }
 
     $minutesLeft = max(1, intdiv(strtotime($order['expires_at']) - time(), 60));
     $data = midtrans_request('POST', midtrans_config()['snap_url'], [

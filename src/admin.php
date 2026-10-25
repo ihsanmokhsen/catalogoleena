@@ -131,6 +131,7 @@ function admin_header(string $title, ?array $admin = null): void
     <nav>
       <a href="/admin/">Pesanan</a>
       <a href="/admin/products.php">Produk</a>
+      <a href="/admin/vouchers.php">Voucher</a>
       <a href="/admin/reports.php">Laporan</a>
       <a href="/admin/settings.php">Pengaturan</a>
       <form method="post" action="/admin/logout.php"><?= csrf_field() ?><button type="submit">Keluar (<?= h($admin['username']) ?>)</button></form>

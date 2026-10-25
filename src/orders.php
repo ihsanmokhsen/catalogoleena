@@ -6,6 +6,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/shipping.php';
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/vouchers.php';
 
 const ORDER_PAYMENT_WINDOW_HOURS = 24;
 
@@ -18,8 +19,14 @@ function clean_text(mixed $value, string $label, int $min, int $max, bool $multi
     $text = trim((string) preg_replace($pattern, ' ', $value));
     $text = (string) preg_replace($multiline ? '/[ \t]+/' : '/\s+/', ' ', $text);
     $length = mb_strlen($text);
-    if ($length < $min || $length > $max) {
-        throw new InvalidArgumentException($min > 0 ? "$label harus $min-$max karakter." : "$label maksimal $max karakter.");
+    if ($min > 0 && $length === 0) {
+        throw new InvalidArgumentException("$label belum diisi.");
+    }
+    if ($length < $min) {
+        throw new InvalidArgumentException("$label terlalu pendek (baru $length huruf, minimal $min).");
+    }
+    if ($length > $max) {
+        throw new InvalidArgumentException("$label terlalu panjang (maksimal $max huruf).");
     }
     return $text;
 }
@@ -28,7 +35,7 @@ function normalize_phone(mixed $value): string
 {
     $phone = is_string($value) ? preg_replace('/[\s.-]/', '', $value) : '';
     if (!preg_match('/^(?:\+62|62|0)(8\d{7,12})$/', (string) $phone, $match)) {
-        throw new InvalidArgumentException('Nomor WhatsApp tidak valid. Contoh: 081234567890.');
+        throw new InvalidArgumentException('Nomor WhatsApp belum benar. Pakai nomor HP yang diawali 08 atau +62, contoh: 081234567890.');
     }
     return '62' . $match[1];
 }
@@ -76,6 +83,8 @@ function order_public(int $orderId): array
         'customerPhone' => $order['customer_phone'],
         'address' => $order['address'],
         'note' => $order['note'],
+        'voucherCode' => $order['voucher_code'],
+        'discount' => (int) $order['discount'],
         'areaName' => $order['destination_area_name'],
         'courier' => $order['courier_label'],
         'weightGram' => (int) $order['weight_gram'],
@@ -144,7 +153,11 @@ function order_create(array $input): array
         $courierLabel = 'Ambil di tempat';
         $rate = ['price' => 0];
     } elseif ($shippingMethod === 'delivery') {
-        $address = clean_text($customer['address'] ?? null, 'Alamat', 10, 500, true);
+        try {
+            $address = clean_text($customer['address'] ?? null, 'Alamat', 10, 500, true);
+        } catch (InvalidArgumentException $e) {
+            throw new InvalidArgumentException($e->getMessage() . ' Tulis lengkap: nama jalan, nomor rumah, RT/RW, dan kelurahan.');
+        }
         $areaId = $shipping['areaId'] ?? null;
         if (!is_string($areaId) || !preg_match('/^\d{1,10}$/', $areaId)) {
             throw new InvalidArgumentException('Wilayah tujuan tidak valid.');
@@ -171,9 +184,16 @@ function order_create(array $input): array
     }
 
     $subtotal = $package['value'];
+    $voucher = null;
+    $discount = 0;
+    $voucherCode = $input['voucherCode'] ?? '';
+    if (is_string($voucherCode) && trim($voucherCode) !== '') {
+        $voucher = voucher_apply($voucherCode, $subtotal, $phone);
+        $discount = $voucher['discount'];
+    }
     $method = payment_mode();
-    $uniqueCode = $method === 'manual' ? order_unique_code($subtotal + $rate['price']) : 0;
-    $total = $subtotal + $rate['price'] + $uniqueCode;
+    $uniqueCode = $method === 'manual' ? order_unique_code($subtotal - $discount + $rate['price']) : 0;
+    $total = $subtotal - $discount + $rate['price'] + $uniqueCode;
 
     $accessToken = bin2hex(random_bytes(32));
 
@@ -182,12 +202,21 @@ function order_create(array $input): array
         $code = 'OLN-' . date('ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
         try {
             $pdo->beginTransaction();
+            if ($voucher !== null) {
+                // Cek ulang dengan baris voucher dikunci, supaya pesanan bersamaan tidak melewati kuota.
+                try {
+                    voucher_apply($voucher['code'], $subtotal, $phone, true);
+                } catch (InvalidArgumentException $e) {
+                    $pdo->rollBack();
+                    throw $e;
+                }
+            }
             $pdo->prepare(
                 'INSERT INTO orders (order_code, idempotency_key, access_token_hash, customer_name, customer_phone, address, note,
                    destination_area_id, destination_area_name, courier_code, courier_service_code, courier_label,
-                   weight_gram, subtotal, shipping_cost, unique_code, total, payment_method, client_ip_hash, expires_at)
+                   weight_gram, subtotal, shipping_cost, unique_code, voucher_code, discount, total, payment_method, client_ip_hash, expires_at)
                  VALUES (:code, :idem, :token_hash, :name, :phone, :address, :note, :area_id, :area_name, :courier, :service,
-                   :courier_label, :weight, :subtotal, :shipping, :unique, :total, :method, :ip, NOW() + INTERVAL :hours HOUR)'
+                   :courier_label, :weight, :subtotal, :shipping, :unique, :voucher, :discount, :total, :method, :ip, NOW() + INTERVAL :hours HOUR)'
             )->execute([
                 'code' => $code,
                 'idem' => $idempotencyKey,
@@ -205,6 +234,8 @@ function order_create(array $input): array
                 'subtotal' => $subtotal,
                 'shipping' => $rate['price'],
                 'unique' => $uniqueCode,
+                'voucher' => $voucher['code'] ?? null,
+                'discount' => $discount,
                 'total' => $total,
                 'method' => $method,
                 'ip' => hash('sha256', client_ip()),

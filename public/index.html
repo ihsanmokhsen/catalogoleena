@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="assets/favicon.png">
     <link rel="apple-touch-icon" href="assets/favicon.png">
     <!-- Naikkan ?v= setiap kali styles.css/script.js berubah, supaya browser tidak memakai versi lama dari cache. -->
-    <link rel="stylesheet" href="styles.css?v=20261025b">
+    <link rel="stylesheet" href="styles.css?v=20261026">
   </head>
   <body>
     <header class="topbar">
@@ -166,9 +166,21 @@
               <input id="checkoutNote" type="text" placeholder="Warna cadangan, patokan rumah, jam kirim, dll">
             </label>
           </section>
+          <div class="voucher-field">
+            <label for="voucherCode">Kode voucher <small>(opsional)</small></label>
+            <div class="voucher-row">
+              <input id="voucherCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="30" placeholder="Contoh: OLEENA10">
+              <button id="applyVoucher" class="secondary-button" type="button">Pakai</button>
+            </div>
+            <small id="voucherStatus" class="field-hint" aria-live="polite"></small>
+          </div>
           <div class="cart-total-row">
             <span>Subtotal produk</span>
             <strong id="cartSubtotal">Rp0</strong>
+          </div>
+          <div id="cartDiscountRow" class="cart-total-row is-discount" hidden>
+            <span id="cartDiscountLabel">Diskon voucher</span>
+            <strong id="cartDiscount">-Rp0</strong>
           </div>
           <div class="cart-total-row">
             <span>Ongkir</span>
@@ -178,6 +190,7 @@
             <span>Total bayar</span>
             <strong id="cartTotal">Rp0</strong>
           </div>
+          <div id="checkoutErrors" class="checkout-errors" role="alert" hidden></div>
           <div class="cart-footer-actions">
             <button id="checkoutCart" class="primary-button" type="button">Buat pesanan</button>
             <button id="clearCart" class="secondary-button" type="button">Hapus keranjang</button>
@@ -212,6 +225,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <script src="script.js?v=20261025b"></script>
+    <script src="script.js?v=20261026"></script>
   </body>
 </html>

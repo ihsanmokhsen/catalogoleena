@@ -889,6 +889,109 @@ a:focus-visible {
   color: var(--accent);
 }
 
+/* Kesalahan isian: tampil langsung di bawah kolom, dengan kalimat yang menjelaskan cara memperbaikinya. */
+.checkout-fields [aria-invalid="true"],
+.voucher-row [aria-invalid="true"] {
+  border-color: var(--accent);
+  background: #fff7f8;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.field-error {
+  display: block;
+  border-left: 3px solid var(--accent);
+  padding: 2px 0 2px 8px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.field-error[hidden] {
+  display: none;
+}
+
+.checkout-errors {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: #fff7f8;
+  color: var(--accent);
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.checkout-errors[hidden] {
+  display: none;
+}
+
+.checkout-errors span {
+  color: var(--ink);
+}
+
+.checkout-errors ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink);
+}
+
+.voucher-field {
+  display: grid;
+  gap: 6px;
+}
+
+.voucher-field label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.voucher-field label small {
+  font-weight: 600;
+  text-transform: none;
+}
+
+.voucher-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.voucher-row input {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  padding: 0 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.voucher-row input[readonly] {
+  background: var(--soft);
+}
+
+.voucher-row input::placeholder {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#voucherStatus:not(.is-error):not(:empty) {
+  color: #1f8a4c;
+}
+
+.cart-total-row.is-discount strong,
+.order-summary .is-discount dd {
+  color: #1f8a4c;
+}
+
 .checkout-fields textarea {
   min-height: 72px;
   padding: 10px;
@@ -903,6 +1006,10 @@ a:focus-visible {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.cart-total-row[hidden] {
+  display: none;
 }
 
 .cart-total-row strong {
