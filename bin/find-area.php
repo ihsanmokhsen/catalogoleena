@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Cari Area ID Biteship untuk mengisi shipping.origin_area_id di config.
+// Cari ID lokasi RajaOngkir untuk mengisi shipping.origin_id di config.
 // Pakai: php bin/find-area.php "Oebobo"
 
 if (PHP_SAPI !== 'cli') {
@@ -18,7 +18,6 @@ if (mb_strlen($query) < 3) {
     exit(1);
 }
 
-$data = biteship_request('GET', '/v1/maps/areas', ['countries' => 'ID', 'input' => $query, 'type' => 'single']);
-foreach ($data['areas'] ?? [] as $area) {
+foreach (shipping_search_areas($query) as $area) {
     echo $area['id'] . "  " . $area['name'] . "\n";
 }

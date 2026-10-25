@@ -1,15 +1,16 @@
 <?php
 declare(strict_types=1);
 
-// Server tiruan Biteship + Midtrans untuk development lokal, sebelum key asli tersedia.
+// Server tiruan RajaOngkir (Komerce) + Midtrans untuk development lokal, sebelum key asli tersedia.
 // Jalankan: php -S localhost:8001 dev/mock-server.php
-// Lalu di config/config.php arahkan base_url / snap_url / api_url ke http://localhost:8001.
+// Lalu di config/config.php arahkan shipping.api_url ke http://localhost:8001/api/v1,
+// serta midtrans.snap_url / api_url ke http://localhost:8001.
 
 if (PHP_SAPI !== 'cli-server') {
     exit("Hanya untuk php -S (development lokal).\n");
 }
 
-const MOCK_BITESHIP_KEY = 'biteship_test.mock';
+const MOCK_RAJAONGKIR_KEY = 'rajaongkir.mock';
 const MOCK_MIDTRANS_KEY = 'SB-Mid-server-mock';
 const APP_URL = 'http://localhost:8000';
 
@@ -30,83 +31,85 @@ function load_state(string $file): array
     return is_file($file) ? (json_decode((string) file_get_contents($file), true) ?: []) : [];
 }
 
-// ---------- Biteship ----------
+// ---------- RajaOngkir (Komerce) ----------
 
-// [area id, nama, kode pos, zona tarif dari Kupang]
+// [id, kecamatan, kota/kabupaten, provinsi, kode pos, zona tarif dari Kupang]
 // Zona: 1 Kota Kupang, 2 daratan Timor, 3 pulau lain di NTT, 4 Bali/NTB/Jawa, 5 Sulawesi/Kalimantan, 6 Sumatera/Papua.
 const AREAS = [
-    ['IDNP19IDNC300IDND3800IDZ85111', 'Oebobo, Kupang, Nusa Tenggara Timur. 85111', 85111, 1],
-    ['IDNP19IDNC300IDND3801IDZ85228', 'Kelapa Lima, Kupang, Nusa Tenggara Timur. 85228', 85228, 1],
-    ['IDNP19IDNC300IDND3802IDZ85119', 'Maulafa, Kupang, Nusa Tenggara Timur. 85148', 85148, 1],
-    ['IDNP19IDNC300IDND3803IDZ85361', 'Alak, Kupang, Nusa Tenggara Timur. 85231', 85231, 1],
-    ['IDNP19IDNC300IDND3804IDZ85225', 'Kota Raja, Kupang, Nusa Tenggara Timur. 85119', 85119, 1],
-    ['IDNP19IDNC301IDND3810IDZ85361', 'Kupang Tengah, Kabupaten Kupang, Nusa Tenggara Timur. 85361', 85361, 1],
-    ['IDNP19IDNC302IDND3820IDZ85511', 'Kota Soe, Timor Tengah Selatan, Nusa Tenggara Timur. 85511', 85511, 2],
-    ['IDNP19IDNC303IDND3830IDZ85613', 'Kota Kefamenanu, Timor Tengah Utara, Nusa Tenggara Timur. 85613', 85613, 2],
-    ['IDNP19IDNC304IDND3840IDZ85711', 'Atambua Barat, Belu, Nusa Tenggara Timur. 85711', 85711, 2],
-    ['IDNP19IDNC305IDND3850IDZ85761', 'Malaka Tengah, Malaka, Nusa Tenggara Timur. 85762', 85762, 2],
-    ['IDNP19IDNC306IDND3860IDZ85512', 'Lobalain, Rote Ndao, Nusa Tenggara Timur. 85912', 85912, 3],
-    ['IDNP19IDNC307IDND3870IDZ86111', 'Alok, Sikka, Nusa Tenggara Timur. 86111', 86111, 3],
-    ['IDNP19IDNC308IDND3880IDZ86311', 'Ende Tengah, Ende, Nusa Tenggara Timur. 86319', 86319, 3],
-    ['IDNP19IDNC309IDND3890IDZ86411', 'Bajawa, Ngada, Nusa Tenggara Timur. 86413', 86413, 3],
-    ['IDNP19IDNC310IDND3900IDZ86511', 'Langke Rembong, Manggarai, Nusa Tenggara Timur. 86511', 86511, 3],
-    ['IDNP19IDNC311IDND3910IDZ86754', 'Komodo, Labuan Bajo, Manggarai Barat, Nusa Tenggara Timur. 86763', 86763, 3],
-    ['IDNP19IDNC312IDND3920IDZ86211', 'Larantuka, Flores Timur, Nusa Tenggara Timur. 86213', 86213, 3],
-    ['IDNP19IDNC313IDND3930IDZ85811', 'Teluk Mutiara, Alor, Nusa Tenggara Timur. 85811', 85811, 3],
-    ['IDNP19IDNC314IDND3940IDZ87111', 'Kota Waingapu, Sumba Timur, Nusa Tenggara Timur. 87112', 87112, 3],
-    ['IDNP19IDNC315IDND3950IDZ87211', 'Kota Waikabubak, Sumba Barat, Nusa Tenggara Timur. 87211', 87211, 3],
-    ['IDNP2IDNC17IDND200IDZ80361', 'Kuta, Badung, Bali. 80361', 80361, 4],
-    ['IDNP18IDNC290IDND3700IDZ83111', 'Mataram, Mataram, Nusa Tenggara Barat. 83121', 83121, 4],
-    ['IDNP6IDNC148IDND843IDZ12250', 'Pesanggrahan, Jakarta Selatan, DKI Jakarta. 12250', 12250, 4],
-    ['IDNP9IDNC23IDND263IDZ40115', 'Coblong, Bandung, Jawa Barat. 40132', 40132, 4],
-    ['IDNP11IDNC444IDND5266IDZ60271', 'Tegalsari, Surabaya, Jawa Timur. 60262', 60262, 4],
-    ['IDNP28IDNC254IDND3335IDZ90231', 'Panakkukang, Makassar, Sulawesi Selatan. 90231', 90231, 5],
-    ['IDNP14IDNC200IDND2500IDZ76114', 'Balikpapan Kota, Balikpapan, Kalimantan Timur. 76111', 76111, 5],
-    ['IDNP34IDNC278IDND3523IDZ20112', 'Medan Baru, Medan, Sumatera Utara. 20153', 20153, 6],
-    ['IDNP24IDNC371IDND4402IDZ99111', 'Jayapura Utara, Jayapura, Papua. 99111', 99111, 6],
+    [90001, 'Oebobo', 'Kupang', 'Nusa Tenggara Timur', '85111', 1],
+    [90002, 'Kelapa Lima', 'Kupang', 'Nusa Tenggara Timur', '85228', 1],
+    [90003, 'Maulafa', 'Kupang', 'Nusa Tenggara Timur', '85148', 1],
+    [90004, 'Alak', 'Kupang', 'Nusa Tenggara Timur', '85231', 1],
+    [90005, 'Kota Raja', 'Kupang', 'Nusa Tenggara Timur', '85119', 1],
+    [90006, 'Kupang Tengah', 'Kabupaten Kupang', 'Nusa Tenggara Timur', '85361', 1],
+    [90007, 'Kota Soe', 'Timor Tengah Selatan', 'Nusa Tenggara Timur', '85511', 2],
+    [90008, 'Kota Kefamenanu', 'Timor Tengah Utara', 'Nusa Tenggara Timur', '85613', 2],
+    [90009, 'Atambua Barat', 'Belu', 'Nusa Tenggara Timur', '85711', 2],
+    [90010, 'Malaka Tengah', 'Malaka', 'Nusa Tenggara Timur', '85762', 2],
+    [90011, 'Lobalain', 'Rote Ndao', 'Nusa Tenggara Timur', '85912', 3],
+    [90012, 'Alok', 'Sikka', 'Nusa Tenggara Timur', '86111', 3],
+    [90013, 'Ende Tengah', 'Ende', 'Nusa Tenggara Timur', '86319', 3],
+    [90014, 'Bajawa', 'Ngada', 'Nusa Tenggara Timur', '86413', 3],
+    [90015, 'Langke Rembong', 'Manggarai', 'Nusa Tenggara Timur', '86511', 3],
+    [90016, 'Komodo', 'Manggarai Barat', 'Nusa Tenggara Timur', '86763', 3],
+    [90017, 'Larantuka', 'Flores Timur', 'Nusa Tenggara Timur', '86213', 3],
+    [90018, 'Teluk Mutiara', 'Alor', 'Nusa Tenggara Timur', '85811', 3],
+    [90019, 'Kota Waingapu', 'Sumba Timur', 'Nusa Tenggara Timur', '87112', 3],
+    [90020, 'Kota Waikabubak', 'Sumba Barat', 'Nusa Tenggara Timur', '87211', 3],
+    [90021, 'Kuta', 'Badung', 'Bali', '80361', 4],
+    [90022, 'Mataram', 'Mataram', 'Nusa Tenggara Barat', '83121', 4],
+    [90023, 'Pesanggrahan', 'Jakarta Selatan', 'DKI Jakarta', '12250', 4],
+    [90024, 'Coblong', 'Bandung', 'Jawa Barat', '40132', 4],
+    [90025, 'Tegalsari', 'Surabaya', 'Jawa Timur', '60262', 4],
+    [90026, 'Panakkukang', 'Makassar', 'Sulawesi Selatan', '90231', 5],
+    [90027, 'Balikpapan Kota', 'Balikpapan', 'Kalimantan Timur', '76111', 5],
+    [90028, 'Medan Baru', 'Medan', 'Sumatera Utara', '20153', 6],
+    [90029, 'Jayapura Utara', 'Jayapura', 'Papua', '99111', 6],
 ];
 
-if (str_starts_with($path, '/v1/')) {
-    if (($headers['authorization'] ?? '') !== MOCK_BITESHIP_KEY) {
-        json_out(['success' => false, 'error' => 'Unauthorized'], 401);
+function komerce_out(mixed $data, string $message = 'Success', int $code = 200): never
+{
+    json_out(['meta' => ['message' => $message, 'code' => $code, 'status' => $code === 200 ? 'success' : 'failed'], 'data' => $data], $code);
+}
+
+if (str_starts_with($path, '/api/v1/')) {
+    if (($headers['key'] ?? '') !== MOCK_RAJAONGKIR_KEY) {
+        komerce_out(null, 'Invalid Api key, key not found', 400);
     }
-    if ($path === '/v1/maps/areas') {
-        $input = mb_strtolower((string) ($_GET['input'] ?? ''));
-        $found = array_values(array_filter(AREAS, fn ($a) => str_contains(mb_strtolower($a[1]), $input)));
-        json_out(['success' => true, 'areas' => array_map(fn ($a) => [
-            'id' => $a[0], 'name' => $a[1], 'country_code' => 'ID', 'postal_code' => $a[2],
-        ], $found)]);
+    if ($path === '/api/v1/destination/domestic-destination') {
+        $search = mb_strtolower((string) ($_GET['search'] ?? ''));
+        $found = array_values(array_filter(AREAS, fn ($a) => str_contains(mb_strtolower("$a[1] $a[2] $a[3]"), $search)));
+        komerce_out(array_map(fn ($a) => [
+            'id' => $a[0], 'label' => mb_strtoupper("$a[1], $a[1], $a[2], $a[3], $a[4]"),
+            'province_name' => mb_strtoupper($a[3]), 'city_name' => mb_strtoupper($a[2]),
+            'district_name' => mb_strtoupper($a[1]), 'subdistrict_name' => mb_strtoupper($a[1]), 'zip_code' => $a[4],
+        ], $found));
     }
-    if ($path === '/v1/rates/couriers') {
-        $body = json_decode((string) file_get_contents('php://input'), true);
+    if ($path === '/api/v1/calculate/domestic-cost') {
         $zone = 4;
         foreach (AREAS as $area) {
-            if ($area[0] === ($body['destination_area_id'] ?? '')) {
-                $zone = $area[3];
+            if ((string) $area[0] === ($_POST['destination'] ?? '')) {
+                $zone = $area[5];
             }
         }
-        $kg = max(1, (int) ceil(($body['items'][0]['weight'] ?? 1000) / 1000));
+        $kg = max(1, (int) ceil(((int) ($_POST['weight'] ?? 1000)) / 1000));
         $base = [1 => 9000, 2 => 21000, 3 => 29000, 4 => 46000, 5 => 55000, 6 => 72000][$zone];
-        // [kode kurir, nama, kode layanan, nama layanan, pengali tarif, estimasi, zona maksimum]
+        $wanted = explode(':', strtolower((string) ($_POST['courier'] ?? '')));
+        // [kode kurir, nama, layanan, deskripsi, pengali tarif, estimasi, zona maksimum]
         $services = [
-            ['jne', 'JNE', 'reg', 'Reguler', 1.0, '2 - 3 days', 6],
-            ['jne', 'JNE', 'oke', 'OKE', 0.85, '4 - 7 days', 6],
-            ['jne', 'JNE', 'yes', 'YES', 1.7, '1 - 1 days', 4],
-            ['jnt', 'J&T', 'ez', 'EZ', 0.95, '2 - 4 days', 6],
-            ['lion', 'Lion Parcel', 'regpack', 'REGPACK', 0.9, '2 - 4 days', 6],
-            ['lion', 'Lion Parcel', 'jagopack', 'JAGOPACK', 0.78, '4 - 6 days', 6],
-            ['lion', 'Lion Parcel', 'onepack', 'ONEPACK', 1.55, '1 - 2 days', 5],
-            // Kurir di luar pilihan toko: harus disaring oleh aplikasi.
-            ['sicepat', 'SiCepat', 'reg', 'REG', 0.8, '2 - 3 days', 6],
+            ['jne', 'Jalur Nugraha Ekakurir (JNE)', 'REG', 'Layanan Reguler', 1.0, '2-3 day', 6],
+            ['jne', 'Jalur Nugraha Ekakurir (JNE)', 'YES', 'Yakin Esok Sampai', 1.7, '1 day', 4],
+            ['jnt', 'J&T Express', 'EZ', 'Reguler', 0.95, '', 6],
+            ['pos', 'POS Indonesia (POS)', 'Pos Reguler', '240', 0.9, '4-6 day', 6],
+            ['sicepat', 'SiCepat Express', 'REG', 'Reguler', 0.8, '2-3 day', 6],
         ];
-        $available = array_filter($services, fn ($s) => $zone <= $s[6]);
-        json_out(['success' => true, 'pricing' => array_values(array_map(fn ($s) => [
-            'courier_code' => $s[0], 'courier_name' => $s[1],
-            'courier_service_code' => $s[2], 'courier_service_name' => $s[3],
-            'duration' => $s[5], 'price' => (int) (round($base * $s[4] * $kg / 500) * 500),
-        ], $available))]);
+        $available = array_filter($services, fn ($s) => $zone <= $s[6] && in_array($s[0], $wanted, true));
+        komerce_out(array_values(array_map(fn ($s) => [
+            'name' => $s[1], 'code' => $s[0], 'service' => $s[2], 'description' => $s[3],
+            'cost' => (int) (round($base * $s[4] * $kg / 500) * 500), 'etd' => $s[5],
+        ], $available)), 'Success Calculate Domestic Shipping cost');
     }
-    json_out(['success' => false, 'error' => 'Not found'], 404);
+    komerce_out(null, 'Not found', 404);
 }
 
 // ---------- Midtrans ----------

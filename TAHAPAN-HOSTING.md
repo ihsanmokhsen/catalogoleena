@@ -11,7 +11,7 @@ Penjelasan lebih lengkap ada di [deploy/README.md](deploy/README.md).
 
 ## 0. Persiapan
 
-- [ ] **RajaOngkir Starter**: buat/aktifkan akun lalu salin API key Starter. Paket ini menghitung ongkir berdasarkan kota/kabupaten.
+- [ ] **RajaOngkir (Komerce)**: daftar di collaborator.komerce.id lalu salin API key Shipping Cost. Ongkir dihitung sampai kelurahan/kecamatan.
 - [ ] **Midtrans** boleh dilewati. Mode default adalah **QR / transfer + konfirmasi WhatsApp**.
 - [ ] Bila repo GitHub **private**, siapkan akses `git clone` dari server (deploy key atau token).
 
@@ -55,13 +55,13 @@ Penjelasan lebih lengkap ada di [deploy/README.md](deploy/README.md).
   chmod 640 config/config.php
   chown root:www config/config.php
   ```
-- [ ] Isi `config/config.php`: `db.pass`, `shipping.rajaongkir_key`, `shipping.origin_city_name` = `Kota Kupang, Nusa Tenggara Timur`, dan `shipping.couriers` = `jne,jnt,pos`. **Jangan** isi `app.env` dengan `'local'`.
+- [ ] Isi `config/config.php`: `db.pass`, `shipping.rajaongkir_key`, `shipping.api_url` = `https://rajaongkir.komerce.id/api/v1`, dan `shipping.couriers` = `jne,jnt,pos`. **Jangan** isi `app.env` dengan `'local'`.
 - [ ] Buat tabel dan impor produk:
   ```bash
   mysql -u oleena -p oleena < database/schema.sql
   php database/seed_products.php
   ```
-- [ ] Pastikan asal pengiriman memakai kota **Kota Kupang**, bukan Area ID atau kecamatan Biteship. `origin_city_id` boleh dikosongkan agar dicari otomatis.
+- [ ] Cari ID lokasi toko dengan `php bin/find-area.php "kecamatan toko"`, lalu isi ke `shipping.origin_id`.
 - [ ] Buat akun admin. Pakai password baru minimal 12 karakter, **bukan** password lokal:
   ```bash
   php bin/create-admin.php oleena
@@ -89,7 +89,7 @@ Penjelasan lebih lengkap ada di [deploy/README.md](deploy/README.md).
 
 ## 9. Go-live
 
-- [ ] RajaOngkir Starter: pastikan API key valid. Jika key pernah terekspos, lakukan rotate/regenerate dan isi key baru hanya di `config/config.php` VPS.
+- [ ] RajaOngkir (Komerce): pastikan API key valid. Jika key pernah terekspos, lakukan rotate/regenerate dan isi key baru hanya di `config/config.php` VPS.
 - [ ] Backup aaPanel (Cron > Backup Site & Database) mencakup database `oleena` dan folder `public/uploads/`. Folder uploads tidak ikut git.
 - [ ] Vercel: rollback atau hapus proyek lama (situs `oleenagoods.vercel.app` sekarang rusak).
 - [ ] Umumkan link baru di Instagram dan WhatsApp.

@@ -20,7 +20,7 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
 
 ### A. Akun yang perlu disiapkan
 
-1. **[akun] RajaOngkir Starter**: buat/aktifkan akun, salin API key Starter, dan simpan secara rahasia. Paket Starter menggunakan tujuan kota/kabupaten.
+1. **[akun] RajaOngkir (Komerce)**: daftar di https://collaborator.komerce.id, salin API key **Shipping Cost**, dan simpan secara rahasia. API lama `api.rajaongkir.com/starter` sudah tidak aktif. Ongkir dihitung sampai tingkat kelurahan/kecamatan.
 2. **[akun] Midtrans** (dashboard.midtrans.com): daftar, pilih environment **Sandbox**, buka Settings > Access Keys, lalu salin **Server Key** (`SB-Mid-server-xxx`).
 
 ### B. DNS dan situs
@@ -66,9 +66,9 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
    ```
    Lalu isi `config/config.php`:
    - `db.pass`: password database dari langkah 7
-   - `shipping.rajaongkir_key`: API key RajaOngkir Starter dari langkah 1
-   - `shipping.origin_city_name`: tetap `Kota Kupang, Nusa Tenggara Timur`
-   - `shipping.origin_city_id`: boleh dikosongkan agar dicari otomatis; isi ID numerik kota Kupang bila sudah diketahui
+   - `shipping.rajaongkir_key`: API key Komerce dari langkah 1
+   - `shipping.api_url`: `https://rajaongkir.komerce.id/api/v1` (hapus `base_url` lama bila masih ada)
+   - `shipping.origin_id`: ID lokasi toko dari `php bin/find-area.php "nama kecamatan"` (langkah 10)
    - `shipping.couriers`: `jne,jnt,pos`
    - `midtrans.server_key`: Server Key dari langkah 2 (`is_production` tetap `false`)
 9. Buat tabel dan impor produk:
@@ -76,7 +76,7 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
    mysql -u oleena -p oleena < database/schema.sql
    php database/seed_products.php
    ```
-10. Pastikan konfigurasi ongkir memakai kota asal Kota Kupang, bukan kecamatan atau Area ID Biteship.
+10. Cari ID lokasi toko lalu isi ke `shipping.origin_id`, misalnya `php bin/find-area.php "kelapa lima"` (hasil `34443  Kelapa Lima, Kupang, ...`).
 11. Buat akun admin (password minimal 12 karakter):
     ```bash
     php bin/create-admin.php oleena
@@ -110,7 +110,7 @@ Kerjakan berurutan. Tanda **[akun]** berarti perlu daftar atau login ke layanan 
 ### G. Go-live
 
 18. Midtrans: ajukan aktivasi Production. Setelah disetujui, ganti `midtrans.server_key` ke key Production (`Mid-server-xxx`), set `is_production => true`, lalu daftarkan ulang Notification URL di environment Production.
-19. RajaOngkir Starter: pastikan `shipping.rajaongkir_key` berisi API key yang valid dan sudah di-rotate jika pernah terekspos. Tidak ada mode Testing/Live Biteship yang perlu diatur.
+19. RajaOngkir (Komerce): pastikan `shipping.rajaongkir_key` berisi API key yang valid dan sudah di-rotate jika pernah terekspos. Perhatikan kuota harian paket Komerce; hasil pencarian wilayah di-cache 7 hari dan ongkir 1 jam.
 20. Lakukan satu transaksi asli bernominal kecil, lalu refund dari Dashboard Midtrans.
 
 ## Update aplikasi
@@ -137,16 +137,15 @@ Foto produk hasil upload disimpan di `public/uploads/products/` dan QR pembayara
 - Foto upload dibuat ulang lewat GD (metadata dan isi tersembunyi terbuang), diberi nama acak oleh server, dan folder `uploads/` hanya melayani file `.jpg` statis.
 - Detail kegagalan API hanya dicatat di log error PHP. Pengunjung hanya melihat pesan umum.
 
-## Development lokal (legacy mock)
+## Development lokal
 
-Lokal memakai MySQL Homebrew dan server tiruan lama Biteship/Midtrans (`dev/mock-server.php`).
-Mock ini bukan konfigurasi deployment dan tidak boleh dipakai sebagai API ongkir VPS. Untuk alur
-RajaOngkir, gunakan API Starter yang valid dengan `config/config.php` lokal yang tidak di-commit.
+Lokal memakai MySQL Homebrew dan server tiruan RajaOngkir (Komerce) + Midtrans (`dev/mock-server.php`),
+jadi alur ongkir bisa dicoba tanpa memakai kuota API asli. Mock ini hanya untuk lokal.
 
 1. Nyalakan MySQL: `brew services start mysql`
 2. Buat database `oleena` dan user `oleena`, lalu buat `config/config.php` dari contoh dengan:
    - `app.url` = `http://localhost:8000` dan `app.env` = `'local'`
-   - konfigurasi `shipping` mengikuti RajaOngkir Starter; jangan menyalin key ke repository
+   - `shipping.rajaongkir_key` = `rajaongkir.mock`, `shipping.api_url` = `http://localhost:8001/api/v1`, `shipping.origin_id` = `90002` (Kelapa Lima di mock)
    - `midtrans.server_key` = `SB-Mid-server-mock`, ditambah `snap_url` = `http://localhost:8001/snap/v1/transactions` dan `api_url` = `http://localhost:8001`
 3. Isi database:
    ```bash

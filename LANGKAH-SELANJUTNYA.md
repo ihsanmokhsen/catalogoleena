@@ -37,7 +37,7 @@ Situs lama `oleenagoods.vercel.app` sekarang rusak, karena PHP tidak jalan di Ve
 
 Siapkan data usaha: KTP pemilik, nomor rekening bank atas nama pemilik atau usaha, nomor WhatsApp, dan alamat toko.
 
-- [ ] **RajaOngkir Starter**: aktifkan akun dan simpan API key Starter secara rahasia. Paket Starter menggunakan kota/kabupaten.
+- [ ] **RajaOngkir (Komerce)**: daftar di collaborator.komerce.id dan simpan API key Shipping Cost secara rahasia.
 - [ ] **Midtrans** (dashboard.midtrans.com): daftar, pakai mode **Sandbox** dulu, simpan Server Key `SB-Mid-server-…`.
 - [ ] **Midtrans**: lengkapi data verifikasi bisnis untuk aktivasi Production. Prosesnya bisa beberapa hari, jadi mulai lebih awal.
 - [ ] Simpan semua key di tempat aman, misalnya password manager. Jangan kirim key lewat chat atau taruh di repo.
@@ -50,7 +50,7 @@ Ikuti [deploy/README.md](deploy/README.md), bagian "Checklist pengaturan".
 - [ ] Buat situs `oleena.hilmimokhsen.my.id` dengan Running directory `/public`, aktifkan SSL, lalu tempel konfigurasi Nginx.
 - [ ] Buat database dan user `oleena`, lalu buat `config/config.php` dengan key **test** (`app.env` jangan diisi `'local'`).
 - [ ] Jalankan `schema.sql` dan `seed_products.php`.
-- [ ] Isi `shipping.origin_city_name` dengan `Kota Kupang, Nusa Tenggara Timur`, gunakan `shipping.origin_city_id` bila sudah diketahui, dan set `shipping.couriers` ke `jne,jnt,pos`.
+- [ ] Isi `shipping.api_url` = `https://rajaongkir.komerce.id/api/v1`, `shipping.origin_id` dari `php bin/find-area.php "kecamatan toko"`, dan `shipping.couriers` = `jne,jnt,pos`.
 - [ ] Buat akun admin server: `php bin/create-admin.php <nama>`, dengan password baru, **bukan** password lokal.
 - [ ] Daftarkan Notification URL di Midtrans dan cron `bin/expire-orders.php` di aaPanel.
 - [ ] Isi berat produk di `/admin/` server (data lokal tidak ikut terbawa).
@@ -66,7 +66,7 @@ Ikuti [deploy/README.md](deploy/README.md), bagian "Checklist pengaturan".
 ## 6. Go-live
 
 - [ ] Midtrans disetujui Production: ganti ke Server Key Production, set `is_production => true`, lalu daftarkan ulang Notification URL di Production.
-- [ ] RajaOngkir Starter: pastikan API key valid. Jika key pernah terekspos, lakukan rotate/regenerate lalu isi key baru hanya di `config/config.php` VPS.
+- [ ] RajaOngkir (Komerce): pastikan API key valid. Jika key pernah terekspos, lakukan rotate/regenerate lalu isi key baru hanya di `config/config.php` VPS.
 - [ ] Lakukan 1 transaksi asli bernominal kecil, lalu refund dari dashboard Midtrans.
 - [ ] Umumkan link baru di Instagram dan WhatsApp.
 

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Integrasi ongkir RajaOngkir Starter. API key hanya dipakai server-side.
+// Integrasi ongkir RajaOngkir (Komerce, https://rajaongkir.komerce.id). API key hanya dipakai server-side.
 // Berat dan nilai paket selalu dihitung dari database, bukan dari data browser.
 
 const AREA_CACHE_TTL = 604800;
@@ -19,16 +19,14 @@ function shipping_config(): array
     if (empty($config['rajaongkir_key'])) {
         throw new ShippingException('Konfigurasi shipping.rajaongkir_key belum diisi.');
     }
-    if (empty($config['origin_city_name'])) {
-        throw new ShippingException('Konfigurasi shipping.origin_city_name belum diisi.');
-    }
     return $config;
 }
 
 function rajaongkir_request(string $method, string $path, array $query = [], ?array $body = null): array
 {
     $config = shipping_config();
-    $url = rtrim((string) ($config['base_url'] ?? 'https://api.rajaongkir.com/starter'), '/') . $path;
+    // Sengaja memakai api_url, bukan base_url: base_url lama menunjuk API RajaOngkir Starter yang sudah mati.
+    $url = rtrim((string) ($config['api_url'] ?? 'https://rajaongkir.komerce.id/api/v1'), '/') . $path;
     if ($query) {
         $url .= '?' . http_build_query($query);
     }
@@ -46,55 +44,70 @@ function rajaongkir_request(string $method, string $path, array $query = [], ?ar
     $raw = curl_exec($curl);
     $status = curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
     $error = curl_error($curl);
-    curl_close($curl);
     if ($raw === false) {
         throw new ShippingException("RajaOngkir tidak dapat dihubungi: $error");
     }
     $data = json_decode($raw, true);
-    $apiStatus = $data['rajaongkir']['status'] ?? [];
-    if (!is_array($data) || $status >= 400 || (int) ($apiStatus['code'] ?? 500) !== 200) {
-        $message = is_array($apiStatus) ? (string) ($apiStatus['description'] ?? 'Respons tidak valid') : 'Respons tidak valid';
+    $meta = is_array($data) ? ($data['meta'] ?? []) : [];
+    if (!is_array($data) || $status >= 400 || (int) ($meta['code'] ?? 500) !== 200) {
+        $message = (string) ($meta['message'] ?? 'Respons tidak valid');
         throw new ShippingException("RajaOngkir $path gagal (HTTP $status): $message");
     }
-    return $data['rajaongkir'];
+    return is_array($data['data'] ?? null) ? $data['data'] : [];
+}
+
+// Huruf besar semua dari API diubah ke Title Case, singkatan dalam kurung (NTT) tetap.
+function shipping_title_case(string $text): string
+{
+    $text = mb_convert_case(mb_strtolower(trim($text)), MB_CASE_TITLE);
+    return (string) preg_replace_callback('/\(([^)]+)\)/u', static fn (array $m): string => '(' . mb_strtoupper($m[1]) . ')', $text);
 }
 
 function shipping_search_areas(string $query): array
 {
-    $cities = cache_get('rajaongkir:cities');
-    if ($cities === null) {
-        $data = rajaongkir_request('GET', '/city');
-        $cities = [];
-        foreach ($data['results'] ?? [] as $city) {
-            if (!is_array($city) || empty($city['city_id'])) {
-                continue;
-            }
-            $cities[] = [
-                'id' => (string) $city['city_id'],
-                'name' => trim((string) ($city['type'] ?? '') . ' ' . (string) ($city['city_name'] ?? '') . ', ' . (string) ($city['province'] ?? '')),
-                'postalCode' => (string) ($city['postal_code'] ?? ''),
-            ];
-        }
-        cache_set('rajaongkir:cities', $cities, AREA_CACHE_TTL);
+    $needle = mb_strtolower(trim($query));
+    $cacheKey = 'rajaongkir:areas:' . $needle;
+    $cached = cache_get($cacheKey);
+    if ($cached !== null) {
+        return $cached;
     }
-    $needle = mb_strtolower($query);
-    return array_values(array_filter($cities, static fn (array $city): bool => str_contains(mb_strtolower($city['name']), $needle)));
+    $areas = [];
+    foreach (rajaongkir_request('GET', '/destination/domestic-destination', ['search' => $needle, 'limit' => 20, 'offset' => 0]) as $row) {
+        if (!is_array($row) || empty($row['id'])) {
+            continue;
+        }
+        $parts = [];
+        foreach (['subdistrict_name', 'district_name', 'city_name', 'province_name'] as $field) {
+            $part = shipping_title_case((string) ($row[$field] ?? ''));
+            if ($part !== '' && !in_array($part, $parts, true)) {
+                $parts[] = $part;
+            }
+        }
+        $zip = (string) ($row['zip_code'] ?? '');
+        $areas[] = [
+            'id' => (string) $row['id'],
+            'name' => implode(', ', $parts) . ($zip !== '' && $zip !== '0' ? " $zip" : ''),
+            'postalCode' => $zip,
+        ];
+    }
+    cache_set($cacheKey, $areas, AREA_CACHE_TTL);
+    return $areas;
 }
 
-function shipping_origin_city_id(): string
+// ID tujuan RajaOngkir (kelurahan/kecamatan) lokasi toko. Cari dengan: php bin/find-area.php "nama kecamatan"
+function shipping_origin_id(): string
 {
     $config = shipping_config();
-    $configured = trim((string) ($config['origin_city_id'] ?? ''));
+    $configured = trim((string) ($config['origin_id'] ?? ''));
     if ($configured !== '') {
         return $configured;
     }
-    $matches = shipping_search_areas((string) $config['origin_city_name']);
-    foreach ($matches as $city) {
-        if (mb_strtolower($city['name']) === mb_strtolower($config['origin_city_name'])) {
-            return $city['id'];
-        }
+    $name = trim((string) ($config['origin_name'] ?? ''));
+    $matches = $name !== '' ? shipping_search_areas($name) : [];
+    if (!$matches) {
+        throw new ShippingException('Lokasi toko tidak ditemukan di RajaOngkir. Isi shipping.origin_id.');
     }
-    throw new ShippingException('Kota asal tidak ditemukan di RajaOngkir. Isi shipping.origin_city_id.');
+    return $matches[0]['id'];
 }
 
 function shipping_package_from_cart(array $items): array
@@ -133,36 +146,52 @@ function shipping_package_from_cart(array $items): array
     return ['weight' => $weight, 'value' => $value, 'lines' => $lines];
 }
 
-function shipping_rates(string $destinationCityId, array $package): array
+function shipping_rates(string $destinationId, array $package): array
 {
     $config = shipping_config();
-    if (!preg_match('/^\d+$/', $destinationCityId)) {
-        throw new ShippingException('ID kota tujuan tidak valid.');
+    if (!preg_match('/^\d+$/', $destinationId)) {
+        throw new ShippingException('ID wilayah tujuan tidak valid.');
     }
-    $couriers = array_values(array_filter(array_map('trim', explode(',', (string) $config['couriers']))));
-    $origin = shipping_origin_city_id();
-    $cacheKey = "rates:rajaongkir:$origin:$destinationCityId:{$package['weight']}:'" . implode(',', $couriers);
+    $couriers = array_values(array_filter(array_map(static fn (string $c): string => strtolower(trim($c)), explode(',', (string) ($config['couriers'] ?? '')))));
+    if (!$couriers) {
+        throw new ShippingException('Konfigurasi shipping.couriers belum diisi.');
+    }
+    $origin = shipping_origin_id();
+    $cacheKey = "rates:komerce:$origin:$destinationId:{$package['weight']}:" . implode(',', $couriers);
     $cached = cache_get($cacheKey);
     if ($cached !== null) {
         return $cached;
     }
+    $data = rajaongkir_request('POST', '/calculate/domestic-cost', [], [
+        'origin' => $origin,
+        'destination' => $destinationId,
+        'weight' => max(1, $package['weight']),
+        'courier' => implode(':', $couriers),
+        'price' => 'lowest',
+    ]);
     $rates = [];
-    foreach ($couriers as $courier) {
-        $data = rajaongkir_request('POST', '/cost', [], ['origin' => $origin, 'destination' => $destinationCityId, 'weight' => max(1, $package['weight']), 'courier' => strtolower($courier)]);
-        $courierResult = $data['results'][0] ?? [];
-        foreach ($courierResult['costs'] ?? [] as $service) {
-            $amount = (int) ($service['cost'][0]['value'] ?? 0);
-            if ($amount <= 0 || empty($service['service'])) {
-                continue;
-            }
-            $rates[] = [
-                'key' => strtolower($courier) . ':' . strtolower((string) $service['service']),
-                'courierName' => strtoupper($courierResult['code'] ?? $courier),
-                'serviceName' => (string) $service['service'] . (!empty($service['description']) ? ' - ' . $service['description'] : ''),
-                'duration' => (string) ($service['cost'][0]['etd'] ?? ''),
-                'price' => $amount,
-            ];
+    foreach ($data as $service) {
+        $code = strtolower((string) ($service['code'] ?? ''));
+        $serviceName = trim((string) ($service['service'] ?? ''));
+        $amount = (int) ($service['cost'] ?? 0);
+        if ($amount <= 0 || $serviceName === '' || !in_array($code, $couriers, true)) {
+            continue;
         }
+        // Nama kurir dari API seperti "Jalur Nugraha Ekakurir (JNE)": pakai singkatan dalam kurung bila ada.
+        $courierName = (string) ($service['name'] ?? $code);
+        if (preg_match('/\(([^)]+)\)\s*$/', $courierName, $m)) {
+            $courierName = $m[1];
+        }
+        $description = trim((string) ($service['description'] ?? ''));
+        $serviceSlug = trim((string) preg_replace('/[^a-z0-9_-]+/', '-', strtr(strtolower($serviceName), ['<' => '-lt', '>' => '-gt'])), '-');
+        $rates[] = [
+            'key' => $code . ':' . substr($serviceSlug, 0, 60),
+            'courierName' => $courierName,
+            // Deskripsi kadang berisi kode internal (mis. "240", "2q9"): tampilkan hanya bila berupa kata.
+            'serviceName' => $serviceName . (preg_match('/[a-z]{4,}/i', $description) && strcasecmp($description, $serviceName) !== 0 ? " - $description" : ''),
+            'duration' => (string) ($service['etd'] ?? ''),
+            'price' => $amount,
+        ];
     }
     usort($rates, fn (array $a, array $b): int => $a['price'] <=> $b['price']);
     cache_set($cacheKey, $rates, RATES_CACHE_TTL);
