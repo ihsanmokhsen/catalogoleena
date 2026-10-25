@@ -34,8 +34,10 @@ function rajaongkir_request(string $method, string $path, array $query = [], ?ar
     curl_setopt_array($curl, [
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_TIMEOUT => 15,
+        // DNS VPS kadang lambat: cukup cari alamat IPv4, dan beri waktu lebih untuk resolve + connect.
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 20,
         CURLOPT_HTTPHEADER => ['key: ' . $config['rajaongkir_key'], 'accept: application/json', 'content-type: application/x-www-form-urlencoded'],
     ]);
     if ($body !== null) {
