@@ -770,8 +770,8 @@
       state.submitting = false;
       checkoutCart.textContent = "Buat pesanan";
       renderCart();
-      // Form checkout ada di bawah: setelah pesanan dibuat, tampilkan ringkasan dari atas.
-      if (state.order) orderPanel.scrollIntoView({ block: "start", behavior: reduceMotion.matches ? "auto" : "smooth" });
+      // Form checkout ada di bawah: setelah pesanan dibuat, gulir keranjang ke paling atas supaya ringkasan terlihat.
+      if (state.order) orderPanel.closest(".cart-shell").scrollTo({ top: 0, behavior: reduceMotion.matches ? "auto" : "smooth" });
     }
   }
 
