@@ -734,15 +734,27 @@
     }
   }
 
+  // crypto.randomUUID belum ada di browser lama (mis. Safari iOS < 15.4 dan sebagian browser bawaan aplikasi).
+  function newIdempotencyKey() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
   async function submitOrder() {
     if (state.submitting) return;
     const pickup = shippingMethod.value === "pickup";
-    const rate = pickup ? null : getSelectedRate();
     state.submitting = true;
-    state.idempotencyKey = state.idempotencyKey || crypto.randomUUID();
     checkoutCart.textContent = "Memproses...";
     checkoutCart.setAttribute("aria-disabled", "true");
+    // Semua langkah di dalam try: kalau ada yang gagal, pembeli melihat pesan dan tombol bisa ditekan lagi.
     try {
+      const rate = pickup ? null : getSelectedRate();
+      state.idempotencyKey = state.idempotencyKey || newIdempotencyKey();
       const data = await postJson("api/orders.php", {
         idempotencyKey: state.idempotencyKey,
         customer: {
@@ -760,7 +772,11 @@
       state.order = data.order;
       state.idempotencyKey = null;
       state.cart.clear();
-      localStorage.setItem("oleena:cart", "[]");
+      try {
+        localStorage.setItem("oleena:cart", "[]");
+      } catch (error) {
+        console.warn(error);
+      }
       checkoutNote.value = "";
       syncAllProductCartButtons();
     } catch (error) {
@@ -771,7 +787,7 @@
       checkoutCart.textContent = "Buat pesanan";
       renderCart();
       // Form checkout ada di bawah: setelah pesanan dibuat, gulir keranjang ke paling atas supaya ringkasan terlihat.
-      if (state.order) orderPanel.closest(".cart-shell").scrollTo({ top: 0, behavior: reduceMotion.matches ? "auto" : "smooth" });
+      if (state.order) orderPanel.closest(".cart-shell").scrollTop = 0;
     }
   }
 
