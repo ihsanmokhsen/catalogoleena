@@ -465,14 +465,41 @@
     expired: "Kedaluwarsa"
   };
 
+  const pickupLabel = "Ambil di tempat";
+  const storeMapUrl = "https://www.google.com/maps?q=-10.163101,123.618319";
+
+  // 6281234567890 -> 0812-3456-7890, lebih mudah dibaca dan diketik ulang.
+  function formatPhone(number) {
+    const local = String(number || "").replace(/^62/, "0");
+    return local.replace(/^(\d{4})(\d{4})(\d+)$/, "$1-$2-$3");
+  }
+
+  function adminWhatsapp(order) {
+    return order.payment && /^62\d{8,13}$/.test(order.payment.whatsapp || "") ? order.payment.whatsapp : whatsappNumber;
+  }
+
+  // Ringkasan teks pesanan: dipakai untuk pesan WhatsApp dan tombol "Salin detail pesanan".
+  function orderDetailLines(order) {
+    const pickup = order.courier === pickupLabel;
+    return [
+      `Nomor pesanan: ${order.code}`,
+      `Status: ${orderStatusLabels[order.status] || order.status}`,
+      "",
+      ...order.items.map((item, index) => `${index + 1}. ${item.name} - ${item.series}, ${item.qty} x ${formatPrice(item.unitPrice)} = ${formatPrice(item.lineTotal)}`),
+      "",
+      `Subtotal: ${formatPrice(order.subtotal)}`,
+      pickup ? "Pengiriman: Ambil di tempat" : `Ongkir (${order.courier}): ${formatPrice(order.shippingCost)}`,
+      ...(order.uniqueCode ? [`Kode unik: ${formatPrice(order.uniqueCode)}`] : []),
+      `Total: ${formatPrice(order.total)}`,
+      "",
+      `Penerima: ${order.customerName}${order.customerPhone ? ` (${formatPhone(order.customerPhone)})` : ""}`,
+      ...(!pickup && order.address ? [`Alamat: ${order.address}, ${order.areaName}`] : [])
+    ];
+  }
+
   function orderWhatsappUrl(order) {
-    const message = [
-      `Halo Oleena, saya sudah membuat pesanan ${order.code}.`,
-      ...order.items.map((item, index) => `${index + 1}. ${item.name} - ${item.series} x${item.qty} (${formatPrice(item.lineTotal)})`),
-      `Kurir: ${order.courier}`,
-      `Total: ${formatPrice(order.total)}`
-    ].join("\n");
-    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    const message = ["Halo Oleena, saya mau tanya tentang pesanan saya.", "", ...orderDetailLines(order)].join("\n");
+    return `https://wa.me/${adminWhatsapp(order)}?text=${encodeURIComponent(message)}`;
   }
 
   function getOrderToken(code) {
@@ -500,8 +527,7 @@
       `Total dibayar: ${formatPrice(order.total)}`,
       "Bukti transfer saya lampirkan. Terima kasih!"
     ].join("\n");
-    const number = order.payment && /^62\d{8,13}$/.test(order.payment.whatsapp || "") ? order.payment.whatsapp : whatsappNumber;
-    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${adminWhatsapp(order)}?text=${encodeURIComponent(message)}`;
   }
 
   async function copyText(text, label) {
@@ -536,7 +562,6 @@
             <button class="secondary-button" type="button" data-copy-text="${account}" data-copy-label="Nomor rekening disalin">Salin</button>
           </div>` : ""}
         ${pay.note ? `<p class="pay-note">${escapeHtml(pay.note)}</p>` : ""}
-        <p class="pay-deadline">Bayar sebelum ${escapeHtml(formatServerDate(order.expiresAt))}. Setelah membayar, kirim bukti transfer lewat tombol WhatsApp di bawah.</p>
       </div>`;
   }
 
@@ -551,6 +576,16 @@
     }
   }
 
+  function orderSteps(order) {
+    if (order.status !== "pending_payment" || !order.payment) return "";
+    return `
+      <ol class="order-steps">
+        <li class="is-current"><b>Bayar ${formatPrice(order.total)}</b><span>Lewat QR atau transfer di bawah, sebelum ${escapeHtml(formatServerDate(order.expiresAt))}.</span></li>
+        <li><b>Kirim bukti bayar</b><span>Tekan tombol hijau "Kirim bukti bayar via WhatsApp".</span></li>
+        <li><b>Pesanan kami proses</b><span>Nomor resi dikabarkan lewat WhatsApp.</span></li>
+      </ol>`;
+  }
+
   function renderOrderPanel() {
     const order = state.order;
     orderPanel.hidden = !order;
@@ -559,33 +594,80 @@
     cartItems.hidden = true;
     cartEmpty.hidden = true;
 
+    const pickup = order.courier === pickupLabel;
+    const pendingManual = order.status === "pending_payment" && order.payment;
+    const adminNumber = adminWhatsapp(order);
+    const itemCount = order.items.reduce((sum, item) => sum + item.qty, 0);
     const items = order.items.map((item) => `
-      <li><span>${escapeHtml(item.name)} - ${escapeHtml(item.series)} x${item.qty}</span><strong>${formatPrice(item.lineTotal)}</strong></li>
+      <li>
+        <div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.series)} &middot; ${item.qty} &times; ${formatPrice(item.unitPrice)}</small></div>
+        <strong>${formatPrice(item.lineTotal)}</strong>
+      </li>
     `).join("");
     orderPanel.innerHTML = `
-      <p class="eyebrow">Pesanan dibuat</p>
-      <h3>${escapeHtml(order.code)}</h3>
+      <div class="order-success">
+        <span class="order-check" aria-hidden="true">&#10003;</span>
+        <div>
+          <h3>Pesanan berhasil dibuat</h3>
+          <p>Terima kasih, ${escapeHtml(order.customerName)}! Simpan nomor pesanan untuk cek status kapan saja.</p>
+        </div>
+      </div>
+
+      <div class="order-code-box">
+        <div>
+          <span>Nomor pesanan</span>
+          <strong>${escapeHtml(order.code)}</strong>
+        </div>
+        <button class="secondary-button" type="button" data-copy-text="${escapeHtml(order.code)}" data-copy-label="Nomor pesanan disalin">Salin</button>
+      </div>
       <p class="order-status">${escapeHtml(orderStatusLabels[order.status] || order.status)}</p>
+
+      ${orderSteps(order)}
       ${manualPaymentBox(order)}
-      <ul class="order-lines">${items}</ul>
-      <dl class="order-summary">
-        <div><dt>Tujuan</dt><dd>${escapeHtml(order.areaName)}</dd></div>
-        <div><dt>Kurir</dt><dd>${escapeHtml(order.courier)}</dd></div>
-        ${order.courier === "Ambil di tempat" ? '<div><dt>Alamat toko</dt><dd><a href="https://www.google.com/maps?q=-10.163101,123.618319" target="_blank" rel="noreferrer">Buka di Google Maps</a></dd></div>' : ""}
-        <div><dt>Subtotal</dt><dd>${formatPrice(order.subtotal)}</dd></div>
-        <div><dt>Ongkir</dt><dd>${formatPrice(order.shippingCost)}</dd></div>
-        <div class="is-total"><dt>Total bayar</dt><dd>${formatPrice(order.total)}</dd></div>
-      </dl>
+      ${pendingManual ? `<a class="primary-button whatsapp-button" href="${paymentConfirmUrl(order)}" target="_blank" rel="noreferrer">Kirim bukti bayar via WhatsApp</a>` : ""}
+      ${order.status === "pending_payment" && order.paymentMethod === "midtrans" ? `
+        <button class="primary-button" type="button" data-order-pay>Bayar sekarang</button>
+      ` : ""}
+
+      <section class="order-section">
+        <h4>Rincian pembelian</h4>
+        <ul class="order-lines">${items}</ul>
+        <dl class="order-summary">
+          <div><dt>Subtotal (${itemCount} barang)</dt><dd>${formatPrice(order.subtotal)}</dd></div>
+          <div><dt>${pickup ? "Ambil di tempat" : "Ongkir"}</dt><dd>${pickup ? "Gratis" : formatPrice(order.shippingCost)}</dd></div>
+          ${order.uniqueCode ? `<div><dt>Kode unik</dt><dd>${formatPrice(order.uniqueCode)}</dd></div>` : ""}
+          <div class="is-total"><dt>Total bayar</dt><dd>${formatPrice(order.total)}</dd></div>
+        </dl>
+      </section>
+
+      <section class="order-section">
+        <h4>${pickup ? "Pengambilan" : "Pengiriman"}</h4>
+        <dl class="order-details">
+          <div><dt>Penerima</dt><dd>${escapeHtml(order.customerName)}</dd></div>
+          ${order.customerPhone ? `<div><dt>No WhatsApp</dt><dd>${escapeHtml(formatPhone(order.customerPhone))}</dd></div>` : ""}
+          ${pickup
+            ? `<div><dt>Lokasi</dt><dd><a href="${storeMapUrl}" target="_blank" rel="noreferrer">Buka di Google Maps</a></dd></div>`
+            : `${order.address ? `<div><dt>Alamat</dt><dd>${escapeHtml(order.address)}</dd></div>` : ""}
+               <div><dt>Wilayah</dt><dd>${escapeHtml(order.areaName)}</dd></div>
+               <div><dt>Kurir</dt><dd>${escapeHtml(order.courier)}</dd></div>`}
+          ${order.trackingNumber ? `<div><dt>No resi</dt><dd>${escapeHtml(order.trackingNumber)}</dd></div>` : ""}
+          ${order.note ? `<div><dt>Catatan</dt><dd>${escapeHtml(order.note)}</dd></div>` : ""}
+        </dl>
+      </section>
+
+      <section class="order-contact">
+        <h4>Butuh bantuan?</h4>
+        <p>Admin Oleena siap membantu lewat WhatsApp atau telepon.</p>
+        <a class="order-contact-number" href="tel:+${adminNumber}">${escapeHtml(formatPhone(adminNumber))}</a>
+        <div class="order-contact-actions">
+          <a class="secondary-button" href="${orderWhatsappUrl(order)}" target="_blank" rel="noreferrer">Chat WhatsApp</a>
+          <a class="secondary-button" href="tel:+${adminNumber}">Telepon</a>
+        </div>
+      </section>
+
       <div class="order-actions">
-        ${order.status === "pending_payment" && order.paymentMethod === "midtrans" ? `
-          <button class="primary-button" type="button" data-order-pay>Bayar sekarang</button>
-          <button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>
-        ` : ""}
-        ${order.status === "pending_payment" && order.payment ? `
-          <a class="primary-button" href="${paymentConfirmUrl(order)}" target="_blank" rel="noreferrer">Sudah bayar? Konfirmasi via WhatsApp</a>
-          <button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>
-        ` : ""}
-        <a class="secondary-button" href="${orderWhatsappUrl(order)}" target="_blank" rel="noreferrer">Hubungi via WhatsApp</a>
+        <button class="secondary-button" type="button" data-order-copy>Salin detail pesanan</button>
+        ${order.status === "pending_payment" ? '<button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>' : ""}
         <a class="secondary-button" href="lacak.html?kode=${encodeURIComponent(order.code)}">Lacak pesanan</a>
         <button class="secondary-button" type="button" data-order-close>Belanja lagi</button>
       </div>
@@ -688,6 +770,8 @@
       state.submitting = false;
       checkoutCart.textContent = "Buat pesanan";
       renderCart();
+      // Form checkout ada di bawah: setelah pesanan dibuat, tampilkan ringkasan dari atas.
+      if (state.order) orderPanel.scrollIntoView({ block: "start", behavior: reduceMotion.matches ? "auto" : "smooth" });
     }
   }
 
@@ -1176,6 +1260,10 @@
     const copy = event.target.closest("[data-copy-text]");
     if (copy) {
       copyText(copy.dataset.copyText, copy.dataset.copyLabel || "Disalin");
+      return;
+    }
+    if (event.target.closest("[data-order-copy]")) {
+      copyText(["Pesanan Oleena", ...orderDetailLines(state.order)].join("\n"), "Detail pesanan disalin");
       return;
     }
     const pay = event.target.closest("[data-order-pay]");

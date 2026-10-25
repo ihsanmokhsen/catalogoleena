@@ -1245,6 +1245,205 @@ a:focus-visible {
 
 .order-actions {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.order-actions .secondary-button {
+  min-height: 40px;
+  padding-inline: 8px;
+  font-size: 0.8rem;
+}
+
+.order-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.order-check {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #1f8a4c;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.order-success h3 {
+  font-size: 1.1rem;
+  letter-spacing: 0;
+}
+
+.order-success p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.order-code-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.order-code-box span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.order-code-box strong {
+  display: block;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.order-code-box .secondary-button,
+.order-contact-actions .secondary-button {
+  min-height: 36px;
+}
+
+.order-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  font-size: 0.82rem;
+}
+
+.order-steps li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 10px;
+  counter-increment: step;
+}
+
+.order-steps li::before {
+  content: counter(step);
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.order-steps li.is-current::before {
+  background: var(--accent);
+  color: #fff;
+}
+
+.order-steps span {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.whatsapp-button {
+  background: #1f8a4c;
+  border-color: #1f8a4c;
+}
+
+.order-section {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.order-section h4,
+.order-contact h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.order-lines li > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.order-lines small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.order-section .order-summary {
+  padding-top: 8px;
+}
+
+.order-details {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.order-details div {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 10px;
+}
+
+.order-details dt {
+  color: var(--muted);
+}
+
+.order-details dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.order-contact {
+  display: grid;
+  gap: 6px;
+  border-radius: var(--radius);
+  background: var(--soft);
+  padding: 12px;
+  text-align: center;
+}
+
+.order-contact p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.order-contact-number {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-contact-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 

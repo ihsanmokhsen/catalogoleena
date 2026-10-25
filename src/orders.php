@@ -72,6 +72,10 @@ function order_public(int $orderId): array
         'code' => $order['order_code'],
         'status' => $order['status'],
         'customerName' => $order['customer_name'],
+        // Data penerima hanya sampai ke pemegang token pesanan atau yang tahu kode + nomor WhatsApp-nya.
+        'customerPhone' => $order['customer_phone'],
+        'address' => $order['address'],
+        'note' => $order['note'],
         'areaName' => $order['destination_area_name'],
         'courier' => $order['courier_label'],
         'weightGram' => (int) $order['weight_gram'],
