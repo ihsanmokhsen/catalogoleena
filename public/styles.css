@@ -2236,3 +2236,21 @@ button.gallery-slide {
   letter-spacing: 0.03em;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Logo ---------- */
+
+.brand-logo {
+  display: block;
+  width: auto;
+  height: 30px;
+}
+
+.brand-lockup .eyebrow {
+  margin-top: 3px;
+}
+
+@media (min-width: 740px) {
+  .brand-logo {
+    height: 38px;
+  }
+}
