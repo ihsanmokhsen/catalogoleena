@@ -59,6 +59,7 @@
   const shippingService = document.querySelector("#shippingService");
   const shippingStatus = document.querySelector("#shippingStatus");
   const checkoutNote = document.querySelector("#checkoutNote");
+  const noteHint = document.querySelector("#noteHint");
   const voucherCode = document.querySelector("#voucherCode");
   const applyVoucher = document.querySelector("#applyVoucher");
   const voucherStatus = document.querySelector("#voucherStatus");
@@ -478,6 +479,7 @@
 
   const pickupLabel = "Ambil di tempat";
   const storeMapUrl = "https://www.google.com/maps?q=-10.163101,123.618319";
+  const storeAddress = "Jl Gedung Keuangan Gang 2 (Yourglow Kayu Putih)";
 
   // 6281234567890 -> 0812-3456-7890, lebih mudah dibaca dan diketik ulang.
   function formatPhone(number) {
@@ -505,7 +507,9 @@
       `Total: ${formatPrice(order.total)}`,
       "",
       `Penerima: ${order.customerName}${order.customerPhone ? ` (${formatPhone(order.customerPhone)})` : ""}`,
-      ...(!pickup && order.address ? [`Alamat: ${order.address}, ${order.areaName}`] : [])
+      ...(!pickup && order.address ? [`Alamat: ${order.address}, ${order.areaName}`] : []),
+      ...(pickup ? [`Alamat ambil: ${storeAddress}`] : []),
+      ...(order.note ? [`Catatan: ${order.note}`] : [])
     ];
   }
 
@@ -659,12 +663,12 @@
           <div><dt>Penerima</dt><dd>${escapeHtml(order.customerName)}</dd></div>
           ${order.customerPhone ? `<div><dt>No WhatsApp</dt><dd>${escapeHtml(formatPhone(order.customerPhone))}</dd></div>` : ""}
           ${pickup
-            ? `<div><dt>Lokasi</dt><dd><a href="${storeMapUrl}" target="_blank" rel="noreferrer">Buka di Google Maps</a></dd></div>`
+            ? `<div><dt>Lokasi</dt><dd>${escapeHtml(storeAddress)}<br><a href="${storeMapUrl}" target="_blank" rel="noreferrer">Buka di Google Maps</a></dd></div>`
             : `${order.address ? `<div><dt>Alamat</dt><dd>${escapeHtml(order.address)}</dd></div>` : ""}
                <div><dt>Wilayah</dt><dd>${escapeHtml(order.areaName)}</dd></div>
                <div><dt>Kurir</dt><dd>${escapeHtml(order.courier)}</dd></div>`}
           ${order.trackingNumber ? `<div><dt>No resi</dt><dd>${escapeHtml(order.trackingNumber)}</dd></div>` : ""}
-          ${order.note ? `<div><dt>Catatan</dt><dd>${escapeHtml(order.note)}</dd></div>` : ""}
+          ${order.note ? `<div><dt>${pickup ? "Jam datang" : "Catatan"}</dt><dd>${escapeHtml(order.note)}</dd></div>` : ""}
         </dl>
       </section>
 
@@ -679,12 +683,191 @@
       </section>
 
       <div class="order-actions">
+        <button class="secondary-button" type="button" data-order-image>Simpan sebagai gambar</button>
         <button class="secondary-button" type="button" data-order-copy>Salin detail pesanan</button>
         ${order.status === "pending_payment" ? '<button class="secondary-button" type="button" data-order-refresh>Cek status pembayaran</button>' : ""}
         <a class="secondary-button" href="lacak.html?kode=${encodeURIComponent(order.code)}">Lacak pesanan</a>
         <button class="secondary-button" type="button" data-order-close>Belanja lagi</button>
       </div>
     `;
+  }
+
+  // ---------- Simpan detail pesanan sebagai gambar PNG ----------
+  // Digambar langsung di canvas (bukan screenshot DOM) supaya hasilnya rapi seperti struk dan tidak butuh library luar.
+
+  function loadImage(src) {
+    return new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => resolve(null);
+      image.src = src;
+    });
+  }
+
+  function wrapText(ctx, text, maxWidth) {
+    const lines = [];
+    String(text).split("\n").forEach((paragraph) => {
+      let line = "";
+      paragraph.split(" ").forEach((word) => {
+        const next = line ? `${line} ${word}` : word;
+        if (line && ctx.measureText(next).width > maxWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = next;
+        }
+      });
+      lines.push(line);
+    });
+    return lines;
+  }
+
+  async function orderImageBlob(order) {
+    const width = 720;
+    const pad = 40;
+    const inner = width - pad * 2;
+    const scale = 2;
+    const font = getComputedStyle(document.body).fontFamily;
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale;
+    canvas.height = 5000 * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, 5000);
+    ctx.textBaseline = "top";
+
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    let y = pad;
+    const setFont = (size, weight = 400, color = "#111111") => {
+      ctx.font = `${weight} ${size}px ${font}`;
+      ctx.fillStyle = color;
+    };
+    const text = (value, x, size, weight, color, align = "left") => {
+      setFont(size, weight, color);
+      ctx.textAlign = align;
+      ctx.fillText(value, x, y);
+      ctx.textAlign = "left";
+    };
+    const rule = (gap = 18) => {
+      y += gap;
+      ctx.fillStyle = "#e7e7e7";
+      ctx.fillRect(pad, y, inner, 1);
+      y += gap;
+    };
+    // Baris label-nilai; nilai panjang dibungkus ke baris berikutnya di kolom kanan.
+    const row = (label, value, { bold = false, color = "#111111", size = 16 } = {}) => {
+      setFont(size, 400, "#767676");
+      ctx.fillText(label, pad, y);
+      setFont(size, bold ? 700 : 600, color);
+      const lines = wrapText(ctx, value, inner * 0.62);
+      ctx.textAlign = "right";
+      lines.forEach((line, index) => ctx.fillText(line, width - pad, y + index * (size + 8)));
+      ctx.textAlign = "left";
+      y += lines.length * (size + 8) + 6;
+    };
+
+    const logo = await loadImage("assets/logo-oleena.png");
+    if (logo) {
+      const logoHeight = 52;
+      const logoWidth = (logo.naturalWidth / logo.naturalHeight) * logoHeight;
+      ctx.drawImage(logo, (width - logoWidth) / 2, y, logoWidth, logoHeight);
+      y += logoHeight + 18;
+    }
+    text("Detail Pesanan", width / 2, 15, 600, "#767676", "center");
+    y += 26;
+    text(order.code, width / 2, 30, 800, "#111111", "center");
+    y += 44;
+    const status = orderStatusLabels[order.status] || order.status;
+    text(order.createdAt ? `${status} \u00b7 ${formatServerDate(order.createdAt)}` : status, width / 2, 15, 600, "#b5071e", "center");
+    y += 22;
+
+    rule();
+    text("Rincian pembelian", pad, 17, 700);
+    y += 32;
+    order.items.forEach((item) => {
+      setFont(16, 600);
+      const names = wrapText(ctx, item.name, inner * 0.68);
+      names.forEach((line, index) => ctx.fillText(line, pad, y + index * 22));
+      ctx.textAlign = "right";
+      ctx.fillText(formatPrice(item.lineTotal), width - pad, y);
+      ctx.textAlign = "left";
+      y += names.length * 22 + 2;
+      text(`${item.series} \u00b7 ${item.qty} \u00d7 ${formatPrice(item.unitPrice)}`, pad, 14, 400, "#767676");
+      y += 30;
+    });
+
+    rule(10);
+    const pickup = order.courier === pickupLabel;
+    const itemCount = order.items.reduce((sum, item) => sum + item.qty, 0);
+    row(`Subtotal (${itemCount} barang)`, formatPrice(order.subtotal));
+    if (order.discount) row(`Voucher ${order.voucherCode}`, `-${formatPrice(order.discount)}`, { color: "#b5071e" });
+    row(pickup ? "Ambil di tempat" : `Ongkir (${order.courier})`, pickup ? "Gratis" : formatPrice(order.shippingCost));
+    if (order.uniqueCode) row("Kode unik", formatPrice(order.uniqueCode));
+    y += 4;
+    row("Total bayar", formatPrice(order.total), { bold: true, size: 20 });
+
+    rule(14);
+    text(pickup ? "Pengambilan" : "Pengiriman", pad, 17, 700);
+    y += 32;
+    row("Penerima", order.customerName);
+    if (order.customerPhone) row("No WhatsApp", formatPhone(order.customerPhone));
+    if (pickup) {
+      row("Alamat ambil", storeAddress);
+    } else {
+      if (order.address) row("Alamat", order.address);
+      row("Wilayah", order.areaName);
+      row("Kurir", order.courier);
+    }
+    if (order.trackingNumber) row("No resi", order.trackingNumber);
+    if (order.note) row(pickup ? "Jam datang" : "Catatan", order.note);
+
+    rule(14);
+    text(`Admin Oleena: ${formatPhone(adminWhatsapp(order))} (WhatsApp)`, width / 2, 14, 600, "#767676", "center");
+    y += 20 + pad;
+
+    const output = document.createElement("canvas");
+    output.width = width * scale;
+    output.height = Math.ceil(y * scale);
+    output.getContext("2d").drawImage(canvas, 0, 0);
+    return new Promise((resolve) => output.toBlob(resolve, "image/png"));
+  }
+
+  async function saveOrderImage(button) {
+    const order = state.order;
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = "Membuat gambar...";
+    try {
+      const blob = await orderImageBlob(order);
+      if (!blob) throw new Error("Gagal membuat gambar");
+      const filename = `Pesanan-Oleena-${order.code}.png`;
+      const file = typeof File === "function" ? new File([blob], filename, { type: "image/png" }) : null;
+      // Di HP, menu bagikan memudahkan menyimpan ke galeri atau langsung kirim lewat WhatsApp.
+      const touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      if (touch && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: filename });
+          return;
+        } catch (error) {
+          if (error.name === "AbortError") return;
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      showToast("Gambar pesanan disimpan");
+    } catch (error) {
+      showToast(error.message || "Gagal membuat gambar");
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
+    }
   }
 
   async function fetchOrderStatus(code, token) {
@@ -1435,6 +1618,9 @@
   shippingMethod.addEventListener("change", () => {
     const pickup = shippingMethod.value === "pickup";
     pickupHint.hidden = !pickup;
+    // Ambil di tempat: pembeli yang datang, jadi catatan dipakai untuk jam kedatangan, bukan patokan rumah.
+    noteHint.hidden = !pickup;
+    checkoutNote.placeholder = pickup ? "Contoh: datang jam 16.00" : "Warna cadangan, patokan rumah, jam kirim, dll";
     checkoutAddress.required = !pickup;
     checkoutArea.closest(".area-field").hidden = pickup;
     shippingService.closest("label").hidden = pickup;
@@ -1515,6 +1701,11 @@
     }
     if (event.target.closest("[data-order-copy]")) {
       copyText(["Pesanan Oleena", ...orderDetailLines(state.order)].join("\n"), "Detail pesanan disalin");
+      return;
+    }
+    const image = event.target.closest("[data-order-image]");
+    if (image) {
+      saveOrderImage(image);
       return;
     }
     const pay = event.target.closest("[data-order-pay]");
